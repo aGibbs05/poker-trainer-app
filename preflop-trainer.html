@@ -1,0 +1,2384 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Preflop Trainer — Live $1/$2, 100bb Cap</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700;9..144,900&family=Hanken+Grotesk:wght@400;500;600;700;800&family=Space+Mono:wght@400;700&family=Chakra+Petch:wght@500;600;700&family=Share+Tech+Mono&family=Cinzel:wght@600;800;900&display=swap" rel="stylesheet">
+<style>
+  /* ============================================================
+     PREFLOP TRAINER — felt-table aesthetic, fully self-contained
+     (system fonts only; no external libraries; no localStorage)
+     ============================================================ */
+  :root{
+    --felt-1:#1c7a52;
+    --felt-2:#0f5c3c;
+    --felt-3:#0a4730;
+    --rail-1:#3c2a1c;
+    --rail-2:#241710;
+    --gold:#e7c873;
+    --gold-deep:#c79a3b;
+    --cream:#f7f1e3;
+    --ink:#1a1410;
+    --paper:#13110d;
+    --panel:#1b2620;
+    --panel-2:#223029;
+    --line:#34463c;
+    --text:#eef3ee;
+    --muted:#a9bcae;
+    --red:#cf3b2f;
+    --red-soft:#e06a5f;
+    --blue:#3a86c8;
+    --ok:#37b06a;
+    --ok-deep:#1f8c4f;
+    --amber:#e0a830;
+    --amber-deep:#bd861a;
+    --shadow:0 14px 40px rgba(0,0,0,.45);
+    --r:16px;
+    --mono: 'Space Mono', ui-monospace, "Cascadia Mono", Menlo, Consolas, monospace;
+    --sans: 'Hanken Grotesk', -apple-system, "Segoe UI", system-ui, sans-serif;
+    --serif: 'Fraunces', "Palatino Linotype", Palatino, Georgia, serif;
+  }
+  /* Skin overrides — synced live from the parent app so the trainer matches every theme.
+     Body is transparent so the parent's themed/animated background shows through (like the other tabs). */
+  html[data-theme="cardroom"]{
+    --gold:#d8b24a; --gold-deep:#9a7822; --cream:#f3ead2; --text:#f3ead2; --muted:#c9bd9c;
+    --panel:rgba(12,20,16,0.72); --panel-2:rgba(20,30,24,0.78); --line:rgba(216,178,74,0.24);
+    --felt-1:#1f7a55; --felt-2:#0f4730; --felt-3:#082319;
+  }
+  html[data-theme="neon"]{
+    --gold:#16e0ff; --gold-deep:#0a8aa3; --cream:#dff3ff; --text:#dff3ff; --muted:#5f8aa0;
+    --panel:rgba(6,16,26,0.68); --panel-2:rgba(10,22,34,0.74); --line:rgba(22,224,255,0.30);
+    --felt-1:#0e3b4a; --felt-2:#0a2230; --felt-3:#05121c; --red-soft:#ff5a9e;
+    --serif:'Chakra Petch',sans-serif; --sans:'Chakra Petch',sans-serif; --mono:'Share Tech Mono',monospace;
+  }
+  html[data-theme="royal"]{
+    --gold:#e3c15a; --gold-deep:#a07e22; --cream:#f7f0e0; --text:#f4ecd8; --muted:#c9b894;
+    --panel:rgba(26,16,34,0.74); --panel-2:rgba(40,24,54,0.74); --line:rgba(227,193,90,0.30);
+    --felt-1:#5a2c78; --felt-2:#341a4d; --felt-3:#1c0e2b; --serif:'Cinzel',serif;
+  }
+  html[data-theme="jungle"]{
+    --gold:#cfe8b0; --gold-deep:#5b7a3b; --cream:#eef7e2; --text:#eef7e2; --muted:#a9c39a;
+    --panel:rgba(12,24,16,0.70); --panel-2:rgba(18,34,22,0.74); --line:rgba(120,180,90,0.30);
+    --felt-1:#1f7a55; --felt-2:#0f4730; --felt-3:#082319;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  body{
+    font-family:var(--sans);
+    color:var(--text);
+    background:transparent;
+    min-height:100dvh;
+    -webkit-font-smoothing:antialiased;
+    padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+  }
+  .wrap{max-width:760px;margin:0 auto;padding:14px 14px 40px;}
+
+  /* ---------- Top HUD ---------- */
+  .hud{
+    display:flex;align-items:center;gap:10px;flex-wrap:wrap;
+    background:linear-gradient(180deg,var(--panel-2),var(--panel));
+    border:1px solid var(--line);
+    border-radius:var(--r);
+    padding:10px 12px;
+    box-shadow:var(--shadow);
+  }
+  .brand{display:flex;align-items:baseline;gap:8px;margin-right:auto;}
+  .brand .suits{font-family:var(--serif);font-size:18px;letter-spacing:.5px}
+  .brand .suits .r{color:var(--red-soft)}
+  .brand h1{font-family:var(--serif);font-size:16px;margin:0;font-weight:600;letter-spacing:.3px}
+  .brand small{display:block;color:var(--muted);font-size:11px;font-weight:500;letter-spacing:.2px}
+
+  .stat{
+    background:rgba(0,0,0,.25);border:1px solid var(--line);border-radius:12px;
+    padding:6px 10px;text-align:center;min-width:64px;
+  }
+  .stat b{display:block;font-size:18px;font-variant-numeric:tabular-nums;font-family:var(--mono);line-height:1.1}
+  .stat span{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.8px}
+  .hud-life{font-size:10.5px;color:var(--muted);font-family:var(--mono);letter-spacing:.4px;margin:-6px 0 10px;text-align:right}
+  .hud-life b{color:var(--gold);font-weight:600}
+  .cat .lt{font-size:9.5px;color:var(--muted);font-family:var(--mono);margin-top:3px}
+  .stat.streak b{color:var(--gold)}
+
+  .disc{flex:1 1 150px;min-width:150px}
+  .disc .row{display:flex;justify-content:space-between;align-items:center;margin-bottom:5px}
+  .disc .row span{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.8px}
+  .disc .row b{font-family:var(--mono);font-size:13px}
+  .bar{height:9px;border-radius:6px;background:rgba(0,0,0,.35);overflow:hidden;border:1px solid var(--line)}
+  .bar > i{display:block;height:100%;width:0%;border-radius:6px;
+    background:linear-gradient(90deg,var(--red),var(--amber) 55%,var(--ok));transition:width .5s ease}
+  .pips{display:flex;gap:3px;margin-top:5px;flex-wrap:wrap}
+  .pip{width:9px;height:9px;border-radius:3px;background:#2b3a32;border:1px solid var(--line)}
+  .pip.ok{background:var(--ok)}
+  .pip.bad{background:var(--red)}
+
+  /* ---------- Toolbar ---------- */
+  .toolbar{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0 8px}
+  .chip{
+    appearance:none;cursor:pointer;font-family:var(--sans);
+    background:linear-gradient(180deg,#243029,#1a231e);
+    color:var(--text);border:1px solid var(--line);border-radius:999px;
+    padding:8px 13px;font-size:12.5px;font-weight:600;letter-spacing:.2px;
+    display:inline-flex;align-items:center;gap:7px;transition:.15s;
+  }
+  .chip:hover{border-color:var(--gold-deep)}
+  .chip[aria-pressed="true"]{background:linear-gradient(180deg,var(--gold),var(--gold-deep));color:#241a06;border-color:var(--gold)}
+  .chip.ghost{background:transparent}
+  .chip .dot{width:8px;height:8px;border-radius:50%;background:var(--muted)}
+  .chip[aria-pressed="true"] .dot{background:#241a06}
+  select.chip{padding-right:10px}
+  .spacer{flex:1}
+
+  /* ---------- Table ---------- */
+  .table-card{
+    margin-top:6px;background:linear-gradient(180deg,var(--panel-2),var(--panel));
+    border:1px solid var(--line);border-radius:22px;padding:16px;box-shadow:var(--shadow);
+  }
+  .table-wrap{position:relative;width:100%;aspect-ratio:1.42/1;max-width:640px;margin:0 auto;}
+  .felt{
+    position:absolute;inset:0;border-radius:46% / 50%;
+    background:
+      radial-gradient(120% 130% at 50% 22%, var(--felt-1) 0%, var(--felt-2) 52%, var(--felt-3) 100%);
+    border:12px solid;
+    border-image:linear-gradient(180deg,#4a3526,#241710) 1;
+    box-shadow:
+      inset 0 0 60px rgba(0,0,0,.45),
+      inset 0 4px 14px rgba(255,255,255,.06),
+      0 18px 40px rgba(0,0,0,.5);
+  }
+  .felt::after{ /* subtle grain/vignette */
+    content:"";position:absolute;inset:0;border-radius:inherit;pointer-events:none;
+    background:radial-gradient(80% 60% at 50% 40%, transparent 60%, rgba(0,0,0,.28) 100%);
+    mix-blend-mode:multiply;
+  }
+  .felt .stripe{
+    position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
+    width:78%;height:70%;border-radius:46% / 50%;
+    border:1.5px solid rgba(231,200,115,.22);
+  }
+
+  .center{
+    position:absolute;left:50%;top:43%;transform:translate(-50%,-50%);
+    text-align:center;width:62%;
+  }
+  .center .pot{font-family:var(--mono);font-size:13px;color:#dff3e6;
+    background:rgba(0,0,0,.28);border:1px solid rgba(231,200,115,.3);border-radius:999px;
+    padding:4px 12px;display:inline-block;letter-spacing:.3px}
+  .center .blinds{font-size:10.5px;color:#bfe0cc;margin-top:6px;letter-spacing:.4px}
+  .center .turn{margin-top:9px;font-family:var(--serif);font-size:13.5px;color:var(--gold);
+    text-transform:uppercase;letter-spacing:2px;animation:glow 2.2s ease-in-out infinite}
+  @keyframes glow{0%,100%{opacity:.7}50%{opacity:1}}
+
+  /* seats */
+  .seat{position:absolute;transform:translate(-50%,-50%);width:84px;text-align:center;
+    transition:.2s}
+  .seat .who{
+    font-size:10.5px;font-weight:700;color:#cfe7d8;letter-spacing:.4px;
+    background:rgba(0,0,0,.34);border:1px solid var(--line);border-radius:9px;
+    padding:3px 6px;display:inline-block;min-width:54px;
+  }
+  .seat.dim{opacity:.34;filter:grayscale(.4)}
+  .seat.dim .who{text-decoration:line-through;text-decoration-thickness:1px}
+  .seat .act{margin-top:4px;font-size:10px;font-weight:700;padding:2px 6px;border-radius:8px;display:inline-block;letter-spacing:.3px}
+  .seat .act.open{background:linear-gradient(180deg,var(--gold),var(--gold-deep));color:#2a1d05}
+  .seat .act.call{background:rgba(58,134,200,.22);color:#bfe0ff;border:1px solid rgba(58,134,200,.5)}
+  .seat .act.limp{background:rgba(255,255,255,.08);color:#dfe7e0;border:1px solid var(--line)}
+  .seat.opener .who{border-color:var(--gold);color:#fff}
+  .seat.btn-seat .who::after{content:" ⊙";color:var(--gold)}
+
+  .seat.hero{width:auto}
+  .seat.hero .who{background:linear-gradient(180deg,#2b3a31,#1b251f);border-color:var(--gold-deep);color:var(--gold)}
+  /* hero shows cards ABOVE the label so they rest on the felt, not over the rail */
+  .seat.hero .hand{margin-top:0;margin-bottom:7px}
+
+  /* hole cards */
+  .hand{display:flex;gap:7px;justify-content:center;margin-top:8px}
+  .card{
+    width:52px;height:72px;border-radius:9px;background:
+      linear-gradient(160deg,#ffffff,var(--cream));
+    color:var(--ink);position:relative;box-shadow:0 8px 18px rgba(0,0,0,.4),inset 0 0 0 1px rgba(0,0,0,.08);
+    display:flex;flex-direction:column;justify-content:space-between;padding:6px 7px;
+    font-family:var(--serif);
+    animation:deal .42s cubic-bezier(.2,.9,.25,1) both;
+  }
+  .card.c2{animation-delay:.09s}
+  @keyframes deal{from{transform:translateY(16px) rotate(-7deg) scale(.92);opacity:0}to{transform:none;opacity:1}}
+  .card .tr{font-size:18px;font-weight:700;line-height:1}
+  .card .br{align-self:flex-end;transform:rotate(180deg);font-size:18px;font-weight:700;line-height:1}
+  .card .mid{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);font-size:26px;line-height:1}
+  .card.red{color:var(--red)}
+  .card .pipR{font-size:12px}
+
+  /* ---------- Action buttons ---------- */
+  .actions{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:14px}
+  .act-btn{
+    appearance:none;cursor:pointer;font-family:var(--sans);font-weight:800;
+    border-radius:14px;padding:15px 8px 13px;border:1px solid transparent;color:#fff;
+    font-size:16px;letter-spacing:.4px;position:relative;transition:.12s;box-shadow:0 8px 18px rgba(0,0,0,.32);
+  }
+  .act-btn small{display:block;font-weight:600;font-size:10.5px;opacity:.85;margin-top:3px;letter-spacing:.5px}
+  .act-btn:disabled{opacity:.45;cursor:default;box-shadow:none}
+  .act-btn:not(:disabled):active{transform:translateY(2px)}
+  .act-btn.fold{background:linear-gradient(180deg,#d6473b,#a82c22)}
+  .act-btn.call{background:linear-gradient(180deg,#3f8fd0,#2a6aa3)}
+  .act-btn.raise{background:linear-gradient(180deg,#e7b23e,#bd861a);color:#241a06}
+  .act-btn.raise.sel{box-shadow:0 0 0 3px rgba(255,243,208,.95),0 8px 18px rgba(0,0,0,.32)}
+  .act-btn .kbd{position:absolute;top:7px;right:9px;font-family:var(--mono);font-size:10px;opacity:.7;font-weight:700}
+
+  /* sizing sub-panel */
+  .sizing{margin-top:10px;background:rgba(0,0,0,.22);border:1px solid var(--line);border-radius:12px;padding:10px 12px;display:none}
+  .sizing.show{display:block;animation:fade .2s ease}
+  .sizing .lab{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.8px;margin-bottom:8px}
+  .size-row{display:flex;gap:8px;flex-wrap:wrap}
+  .size-btn{appearance:none;cursor:pointer;font-family:var(--mono);font-size:13px;font-weight:700;
+    background:linear-gradient(180deg,#26332b,#1a231e);color:var(--text);border:1px solid var(--line);
+    border-radius:10px;padding:9px 12px;transition:.12s}
+  .size-btn:hover{border-color:var(--gold-deep)}
+  .size-tip{margin-top:8px;font-size:11.5px;color:var(--muted)}
+  .size-btn.sel{border-color:var(--gold);color:#fff}
+  .size-note{margin-top:11px;font-size:12.5px;line-height:1.5;color:#d7e6db;border-left:2px solid var(--gold-deep);padding-left:10px}
+  .size-note b{color:var(--gold)}
+
+  /* ---------- Feedback ---------- */
+  .feedback{margin-top:14px;border-radius:16px;padding:0;overflow:hidden;display:none;box-shadow:var(--shadow)}
+  .feedback.show{display:block;animation:fade .25s ease}
+  @keyframes fade{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+  .fb-head{padding:13px 16px;display:flex;align-items:center;gap:11px;font-weight:800;letter-spacing:.3px}
+  .fb-head .verdict{font-size:16px}
+  .fb-head .icon{width:30px;height:30px;border-radius:50%;display:grid;place-items:center;font-size:17px;background:rgba(255,255,255,.18)}
+  .fb-head .best{margin-left:auto;font-size:12px;font-weight:700;opacity:.92;text-align:right}
+  .feedback.correct .fb-head{background:linear-gradient(180deg,var(--ok),var(--ok-deep));color:#06210f}
+  .feedback.defensible .fb-head{background:linear-gradient(180deg,var(--amber),var(--amber-deep));color:#251803}
+  .feedback.mistake .fb-head{background:linear-gradient(180deg,var(--red),#9e271d);color:#fff}
+  .fb-body{background:linear-gradient(180deg,var(--panel-2),var(--panel));padding:14px 16px}
+  .fb-why{font-size:14px;line-height:1.55;color:#e9f1ea}
+  .fb-why .concept{color:var(--gold);font-weight:700}
+  .math{margin-top:11px;font-family:var(--mono);font-size:12.5px;color:#cfe6d6;background:rgba(0,0,0,.28);
+    border:1px solid var(--line);border-radius:10px;padding:10px 12px;line-height:1.6;white-space:pre-wrap}
+  .leak-flag{margin-top:11px;border-radius:12px;padding:11px 13px;font-size:13px;font-weight:600;line-height:1.5;display:flex;gap:9px;align-items:flex-start}
+  .leak-flag .em{font-size:16px;line-height:1.3}
+  .leak-flag.bad{background:rgba(207,59,47,.16);border:1px solid rgba(207,59,47,.5);color:#ffd9d3}
+  .leak-flag.win{background:rgba(55,176,106,.15);border:1px solid rgba(55,176,106,.5);color:#cdf2da}
+  .leak-flag.over{background:rgba(224,168,48,.14);border:1px solid rgba(224,168,48,.5);color:#fce9c4}
+
+  .jargon{margin-top:11px;border-radius:12px;padding:11px 13px;background:rgba(58,134,200,.12);
+    border:1px solid rgba(58,134,200,.45)}
+  .jargon h4{margin:0 0 4px;font-size:12px;color:#bfe0ff;text-transform:uppercase;letter-spacing:.8px}
+  .jargon h4 b{color:#fff;text-transform:none;letter-spacing:0;font-size:13.5px}
+  .jargon p{margin:0;font-size:13px;line-height:1.55;color:#e7f0f7}
+  .jargon p.analogy{margin-top:6px;color:#cfe2f0;font-style:italic}
+  .concept-chip{display:inline-block;margin-top:9px;font-size:11px;background:rgba(58,134,200,.18);
+    border:1px solid rgba(58,134,200,.4);color:#cfe6ff;border-radius:999px;padding:3px 10px;font-weight:600}
+
+  .next{display:grid;grid-template-columns:1fr;margin-top:13px}
+  .next-btn{appearance:none;cursor:pointer;font-family:var(--sans);font-weight:800;font-size:15px;letter-spacing:.4px;
+    border:1px solid var(--gold);border-radius:14px;padding:14px;color:#241a06;
+    background:linear-gradient(180deg,var(--gold),var(--gold-deep));box-shadow:0 8px 18px rgba(0,0,0,.3);transition:.12s}
+  .next-btn:active{transform:translateY(2px)}
+  .next-btn .kbd{font-family:var(--mono);font-size:11px;opacity:.7;margin-left:8px}
+
+  /* category accuracy strip */
+  .cats{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+  .cat{flex:1 1 110px;background:linear-gradient(180deg,var(--panel-2),var(--panel));border:1px solid var(--line);
+    border-radius:12px;padding:9px 11px}
+  .cat .nm{font-size:10.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.6px}
+  .cat .vl{font-family:var(--mono);font-size:15px;margin:3px 0 5px}
+  .cat .mini{height:6px;border-radius:5px;background:rgba(0,0,0,.3);overflow:hidden;border:1px solid var(--line)}
+  .cat .mini > i{display:block;height:100%;width:0%;background:linear-gradient(90deg,var(--gold-deep),var(--gold))}
+
+  /* ---------- Modals ---------- */
+  .scrim{position:fixed;inset:0;background:rgba(4,7,6,.72);backdrop-filter:blur(3px);display:none;z-index:40;
+    align-items:flex-start;justify-content:center;padding:24px 14px;overflow:auto}
+  .scrim.show{display:flex;animation:fade .2s ease}
+  .modal{width:100%;max-width:560px;background:linear-gradient(180deg,var(--panel-2),var(--panel));
+    border:1px solid var(--line);border-radius:18px;box-shadow:var(--shadow);overflow:hidden}
+  .modal header{display:flex;align-items:center;gap:10px;padding:15px 18px;border-bottom:1px solid var(--line)}
+  .modal header h2{font-family:var(--serif);font-size:18px;margin:0;font-weight:600}
+  .modal header .x{margin-left:auto;appearance:none;cursor:pointer;background:transparent;border:1px solid var(--line);
+    color:var(--text);border-radius:10px;width:34px;height:34px;font-size:18px;line-height:1}
+  .modal .content{padding:16px 18px;font-size:13.5px;line-height:1.6;color:#e7efe8}
+  .modal .content h3{font-size:13px;color:var(--gold);text-transform:uppercase;letter-spacing:.8px;margin:16px 0 6px}
+  .modal .content h3:first-child{margin-top:0}
+  .modal .content p{margin:0 0 9px}
+  .modal .content ul{margin:0 0 9px;padding-left:18px}
+  .modal .content li{margin:3px 0}
+  .modal .content code{font-family:var(--mono);font-size:12px;background:rgba(0,0,0,.3);padding:1px 5px;border-radius:5px;border:1px solid var(--line)}
+  .tier-tag{display:inline-block;font-weight:700;border-radius:6px;padding:1px 7px;font-size:12px;margin-right:4px}
+  .t1{background:rgba(55,176,106,.2);color:#9be8b8;border:1px solid rgba(55,176,106,.5)}
+  .t2{background:rgba(58,134,200,.2);color:#bfe0ff;border:1px solid rgba(58,134,200,.5)}
+  .t3{background:rgba(231,200,115,.18);color:#f0d894;border:1px solid rgba(231,200,115,.45)}
+  .t4{background:rgba(224,168,48,.18);color:#fbdf9f;border:1px solid rgba(224,168,48,.5)}
+  .t5{background:rgba(207,59,47,.18);color:#ffc9c2;border:1px solid rgba(207,59,47,.5)}
+
+  /* settings rows */
+  .setrow{display:flex;align-items:center;gap:10px;padding:11px 0;border-bottom:1px solid var(--line)}
+  .setrow:last-child{border-bottom:none}
+  .setrow label{flex:1;font-weight:600;font-size:13.5px}
+  .setrow label small{display:block;color:var(--muted);font-weight:500;font-size:11.5px;margin-top:2px}
+  .setrow select{font-family:var(--sans);background:#1a231e;color:var(--text);border:1px solid var(--line);
+    border-radius:10px;padding:9px 11px;font-size:13px}
+
+  /* glossary list */
+  .gloss dt{font-weight:700;color:var(--gold);margin-top:14px;font-size:14px}
+  .gloss dt:first-child{margin-top:0}
+  .gloss dd{margin:4px 0 0;font-size:13px;line-height:1.55}
+  .gloss dd.an{margin-top:5px;color:var(--muted);font-style:italic}
+
+  /* report card */
+  .rc-grade{display:flex;align-items:center;gap:16px;margin-bottom:14px}
+  .rc-grade .big{font-family:var(--serif);font-size:64px;font-weight:700;line-height:1;width:96px;height:96px;
+    display:grid;place-items:center;border-radius:20px;border:2px solid var(--gold);color:var(--gold);
+    background:radial-gradient(120% 120% at 30% 20%,rgba(231,200,115,.18),rgba(0,0,0,.2))}
+  .rc-grade .meta b{font-family:var(--mono);font-size:26px;display:block}
+  .rc-grade .meta span{color:var(--muted);font-size:12px}
+  .rc-tip{margin-top:6px;background:rgba(231,200,115,.1);border:1px solid rgba(231,200,115,.4);
+    border-radius:12px;padding:13px 14px;font-size:13.5px;line-height:1.55}
+  .rc-tip b{color:var(--gold)}
+
+  .banner{margin:0 0 10px;background:linear-gradient(180deg,rgba(231,200,115,.13),rgba(231,200,115,.05));
+    border:1px solid rgba(231,200,115,.4);border-radius:14px;padding:13px 15px;display:flex;gap:12px;align-items:flex-start}
+  .banner .em{font-size:22px}
+  .banner p{margin:0;font-size:13px;line-height:1.55}
+  .banner b{color:var(--gold)}
+  .banner .x{margin-left:auto;appearance:none;cursor:pointer;background:transparent;border:1px solid var(--line);
+    color:var(--text);border-radius:9px;width:30px;height:30px;flex:none}
+
+  .foot{text-align:center;color:var(--muted);font-size:11px;margin-top:18px;line-height:1.5}
+  .foot a{color:var(--gold);cursor:pointer;text-decoration:underline}
+
+  @media (max-width:430px){
+    .card{width:46px;height:64px}
+    .card .tr,.card .br{font-size:16px}
+    .card .mid{font-size:23px}
+    .seat{width:70px}
+    .act-btn{font-size:15px;padding:13px 6px 11px}
+    .stat{min-width:54px}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <!-- HUD -->
+  <div class="hud">
+    <div class="brand">
+      <span class="suits">♠<span class="r">♥</span>♦<span class="r">♣</span></span>
+      <div>
+        <h1>Preflop Trainer</h1>
+        <small id="brandSub">Live $1/$2 · 100bb cap · big opens</small>
+      </div>
+    </div>
+    <div class="stat"><b id="hScore">0</b><span>Score</span></div>
+    <div class="stat streak"><b id="hStreak">0</b><span>Streak</span></div>
+    <div class="stat disc">
+      <div class="row"><span>Discipline</span><b id="hDisc">—</b></div>
+      <div class="bar"><i id="hDiscBar"></i></div>
+      <div class="pips" id="hPips"></div>
+    </div>
+  </div>
+  <div class="hud-life" id="hLifetime" hidden></div>
+
+  <!-- Toolbar -->
+  <div class="toolbar">
+    <button class="chip" id="btnFocus" aria-pressed="false"><span class="dot"></span>Focus Mode</button>
+    <select class="chip" id="selDiff" title="Difficulty">
+      <option value="mixed">Difficulty: Mixed</option>
+      <option value="easy">Difficulty: Clear spots</option>
+      <option value="hard">Difficulty: Borderline</option>
+    </select>
+    <span class="spacer"></span>
+    <button class="chip ghost" id="btnHow">ⓘ Grading</button>
+    <button class="chip ghost" id="btnGloss">Aa Glossary</button>
+    <button class="chip ghost" id="btnSettings">⚙ Settings</button>
+    <button class="chip ghost" id="btnReport">▣ Report</button>
+  </div>
+
+  <!-- First-load banner -->
+  <div class="banner" id="banner">
+    <div class="em">🎯</div>
+    <p>This trainer drills <b>one leak</b>: calling too wide against big live opens with speculative or dominated hands. At a 100bb cap, those calls lose money — so you'll practice <b>folding the pretty-but-trapped hands</b> while still <b>defending the cheap spots</b> correctly. Every hand explains the <i>why</i> in plain language.</p>
+    <button class="x" id="bannerX" aria-label="Dismiss">×</button>
+  </div>
+
+  <!-- Table -->
+  <div class="table-card">
+    <div class="table-wrap">
+      <div class="felt"><div class="stripe"></div></div>
+      <div class="center">
+        <div class="pot" id="potLine">Pot 0bb</div>
+        <div class="blinds" id="blindLine"></div>
+        <div class="turn">Action on you</div>
+      </div>
+      <div id="seats"></div>
+    </div>
+  </div>
+
+  <!-- Actions -->
+  <div class="actions">
+    <button class="act-btn fold" id="aFold">Fold<small id="lblFold">give it up</small><span class="kbd">F</span></button>
+    <button class="act-btn call" id="aCall">Call<small id="lblCall">flat the bet</small><span class="kbd">C</span></button>
+    <button class="act-btn raise" id="aRaise">Raise<small id="lblRaise">put in a raise</small><span class="kbd">R</span></button>
+  </div>
+
+  <!-- Sizing -->
+  <div class="sizing" id="sizing">
+    <div class="lab" id="sizeLab">Pick a size</div>
+    <div class="size-row" id="sizeRow"></div>
+    <div class="size-tip" id="sizeTip"></div>
+  </div>
+
+  <!-- Feedback -->
+  <div class="feedback" id="feedback">
+    <div class="fb-head">
+      <span class="icon" id="fbIcon">✓</span>
+      <span class="verdict" id="fbVerdict">Correct</span>
+      <span class="best" id="fbBest"></span>
+    </div>
+    <div class="fb-body">
+      <div class="fb-why" id="fbWhy"></div>
+      <div class="size-note" id="fbSize" style="display:none"></div>
+      <div class="math" id="fbMath" style="display:none"></div>
+      <div id="fbLeak"></div>
+      <div id="fbJargon"></div>
+      <div class="next"><button class="next-btn" id="aNext">Next hand<span class="kbd">Space</span></button></div>
+    </div>
+  </div>
+
+  <!-- Category accuracy -->
+  <div class="cats" id="cats"></div>
+
+  <div class="foot">
+    Exploitative model tuned for a 100bb-capped live game — not a GTO solver.
+    <a id="footHow">See how grading works ›</a>
+  </div>
+</div>
+
+<!-- ===== Modals ===== -->
+<div class="scrim" id="scrimHow">
+  <div class="modal">
+    <header><h2>How grading works</h2><button class="x" data-close>×</button></header>
+    <div class="content">
+      <p>This trainer uses a consistent <b>exploitative</b> model built for <b>your</b> game: 8-max live, <b>$1/$2</b> with a <b>100bb buy-in cap</b>, where opens are big (2.5×–6× = 5–12bb). It is deliberately tighter than a GTO solver, because the cap removes the implied-odds payoff that justifies loose speculative play.</p>
+
+      <h3>Hand tiers</h3>
+      <ul>
+        <li><span class="tier-tag t1">T1</span><b>Premium</b> — QQ+, AK, AQs. Always continue; usually raise/3-bet.</li>
+        <li><span class="tier-tag t2">T2</span><b>Strong</b> — TT–JJ, AQo, AJs, KQs. Continue; raise or call by spot.</li>
+        <li><span class="tier-tag t3">T3</span><b>Good in position</b> — 88–99, ATs, suited broadways (KJs/QJs/JTs…), AJo/KQo late.</li>
+        <li><span class="tier-tag t4">T4</span><b>Speculative</b> — small pairs 22–77, suited connectors 76s–T9s, weak suited aces. Need implied odds + position; mostly <b>fold</b> to big opens at the cap.</li>
+        <li><span class="tier-tag t5">T5</span><b>Trash</b> — suited gappers (T8s, 97s, 48s), offsuit junk, weak offsuit broadways OOP. Fold to a raise.</li>
+      </ul>
+
+      <h3>Open-size adjustment</h3>
+      <p>The bigger the open, the tighter you continue. Small (2.5–3×): T1–3 + a little T4 in position. Medium (4–5×): T1–3, very little T4. Large (6×+, 10–12bb): mostly T1–2.</p>
+
+      <h3>Set-mining math (the cap matters)</h3>
+      <p>Set-mine a pocket pair only when the effective stack behind is a big multiple of your call. The textbook bar is <code>~15×</code>; in a loose, paying low-stakes game it drops toward <code>~10–12×</code> because you get paid off more often. At a 100bb cap: vs a 5bb open you have ~95bb behind (~19×) — a clear call. Vs an 8–10bb open (~11–9×) it's marginal. Vs a 12bb open (~7×) you're below the floor even against a calling station — the cap, not their tightness, is what kills it, so <b>fold the small pairs to the big opens.</b> From the blinds the math uses your <b>net</b> call — the blind you already posted discounts the price, so the same open sets a slightly better ratio.</p>
+
+      <h3>Big-blind defense is different</h3>
+      <p>When you close the action <b>cheaply and multiway</b> from the big blind, defending <b>wide</b> is correct — you're getting a price and closing. The trainer rewards this. It only tightens BB defense vs large opens or when you're not closing. <b>Blind-vs-blind</b> it widens further: small blinds tend to open wide and play passively, and it's the one open you have position against — over-folding there is its own leak.</p>
+
+      <h3>Limped-pot extras</h3>
+      <p>Three spots get their own rules: <b>small-blind completes</b> must pass the "would I over-limp this on the button?" test — marginal completes into small, near-heads-up limped pots lean fold because the capped rake eats those pots (rake structures vary by room; treat the numbers as estimates). A <b>limp-reraise</b> from a typical live player tends to be a premium trap — continue only with a premium of your own, or a pocket pair deep enough to set-mine it. And iso-raising limpers stays wide at $1/$2, tilting toward value at $2/$5.</p>
+
+      <h3>Position</h3>
+      <p>Tightest UTG/UTG+1, moderate LJ/HJ, widest CO/BTN (position lets you realize equity). SB plays tighter and more 3-bet-or-fold.</p>
+
+      <h3>How a choice is scored</h3>
+      <p><span class="tier-tag t1">CORRECT</span> the best play (+10). <span class="tier-tag t4">DEFENSIBLE</span> reasonable, not best (+5). <span class="tier-tag t5">MISTAKE</span> loses money in this model (+0). Sizing is graded lightly and doesn't change the action grade.</p>
+    </div>
+  </div>
+</div>
+
+<div class="scrim" id="scrimGloss">
+  <div class="modal">
+    <header><h2>Poker vocabulary</h2><button class="x" data-close>×</button></header>
+    <div class="content"><dl class="gloss" id="glossList"></dl></div>
+  </div>
+</div>
+
+<div class="scrim" id="scrimSettings">
+  <div class="modal">
+    <header><h2>Settings</h2><button class="x" data-close>×</button></header>
+    <div class="content">
+      <div class="setrow">
+        <label>Stakes<small>Sets the big-blind value used for $ amounts</small></label>
+        <select id="setStakes">
+          <option value="1,2,0.5">$1 / $2</option>
+          <option value="1,3,0.333">$1 / $3</option>
+          <option value="2,3,0.667">$2 / $3</option>
+          <option value="2,5,0.4">$2 / $5</option>
+          <option value="5,10,0.5">$5 / $10</option>
+        </select>
+      </div>
+      <div class="setrow">
+        <label>Buy-in cap<small>Deeper stacks make set-mining work more often</small></label>
+        <select id="setCap">
+          <option value="75">75bb</option>
+          <option value="100" selected>100bb</option>
+          <option value="150">150bb</option>
+          <option value="200">200bb (deep)</option>
+          <option value="250">250bb (deep)</option>
+          <option value="300">300bb (very deep)</option>
+        </select>
+      </div>
+      <div class="setrow">
+        <label>Open-size distribution<small>The range of open sizes the table tends to use</small></label>
+        <select id="setOpens">
+          <option value="wide" selected>3–12bb (full live spread)</option>
+          <option value="small">3–7bb (small opens)</option>
+          <option value="big">8–12bb (big opens)</option>
+        </select>
+      </div>
+      <p style="color:var(--muted);font-size:12.5px;margin-top:12px">Changes take effect on the next hand.</p>
+    </div>
+  </div>
+</div>
+
+<div class="scrim" id="scrimReport">
+  <div class="modal">
+    <header><h2>Session report card</h2><button class="x" data-close>×</button></header>
+    <div class="content" id="reportContent"></div>
+  </div>
+</div>
+
+<script>
+"use strict";
+/* ================================================================
+   CONSTANTS & MATH
+   ================================================================ */
+const RANKS = ['2','3','4','5','6','7','8','9','T','J','Q','K','A'];
+const rIdx = c => RANKS.indexOf(c);
+const POS = ['UTG','UTG+1','LJ','HJ','CO','BTN','SB','BB'];           // preflop order
+const POSTFLOP = ['SB','BB','UTG','UTG+1','LJ','HJ','CO','BTN'];      // who acts last postflop
+const SUITS = [{s:'♠',r:false},{s:'♥',r:true},{s:'♦',r:true},{s:'♣',r:false}];
+
+// Settings (mutable)
+const S = { bb:2, sb:1, sbbb:0.5, cap:100, opens:'wide' };
+
+// Stakes doctrine switch (SHIFT-1/2/4, TAX-1): $2/$5+ pools are reg-heavy — more
+// 3-betting, less open-limping, isos get defended — so a few verdicts flip with stakes.
+// The banding is a heuristic keyed off the big blind; all user copy stays hedged.
+const regHeavy = () => S.bb >= 5;
+const ipVsOpener = (hero, opener) => POSTFLOP.indexOf(hero) > POSTFLOP.indexOf(opener);
+const posCat = p => (p==='UTG'||p==='UTG+1') ? 'early' : (p==='LJ'||p==='HJ') ? 'mid' : (p==='CO'||p==='BTN') ? 'late' : (p==='SB') ? 'sb' : 'bb';
+const openCat = bb => bb<=6 ? 'small' : bb<=10 ? 'medium' : 'large';
+// what a blind hero has already posted — their call is the DIFFERENCE, never the full open
+const postedBlind = hero => hero==='BB' ? 1 : (hero==='SB' ? S.sbbb : 0);
+// heads-up call break-even vs an open: pot before the call = open + sb + bb; a blind
+// hero's posted chips are already inside that pot and discount the call (no phantom
+// full-price call, no double-counted dead money).
+const beVsOpen = (openBB, hero) => {
+  const call = openBB - postedBlind(hero);
+  return call / (openBB + S.sbbb + 1 + call);
+};
+// set-mine ratio: how many times your call sits behind in effective stack
+const smRatio = openBB => (S.cap - openBB) / openBB;
+// blind-aware variant: a blind hero's NET call is smaller, so the behind-multiple is bigger
+const smRatioSc = sc => (S.cap - sc.openBB) / (sc.openBB - postedBlind(sc.hero));
+
+// Exploitative set-mine verdict for a small pocket pair, keyed off the cap-aware ratio.
+// Tuned for a low-stakes population that is looser-than-optimal: the textbook bar is
+// ~15x, but a field that overcalls and pays off lowers it toward ~10x. Below ~9x the
+// 100bb cap makes it -EV no matter how loose they are — you flop a set only ~1 in 8.5
+// and can't win enough behind even if they stack off every time.
+const SM_GREAT = 13; // ratio >= this: set-mine is clearly +EV — calling is best
+const SM_OK    = 9;  // ratio >= this: marginal/defensible; below = the cap-driven leak
+function setMineVerdict(ratio){
+  if(ratio >= SM_GREAT) return 'call';  // reward it
+  if(ratio >= SM_OK)    return 'thin';  // fold leans best, call defensible, NOT the leak
+  return 'leak';                        // -EV at the cap — fold, calling is the leak
+}
+const smNeedShort = 'set-mining wants ~10–12× behind in a loose game (textbook 15×)';
+
+// Speculative SUITED hands (connectors, gappers, weak suited aces) gain value as stacks
+// deepen — implied odds grow, so they stop being the leak when you're very deep. The bar is
+// higher than set-mining (these make weaker, more reverse-implied made hands than a set).
+// Gated at >=15x, which big opens never reach at the 100bb cap (~7–11x) — but SMALL opens
+// can (e.g. 5bb → 19x): there the grade is fold-best/call=DEFENSIBLE, and the clear-call
+// upgrade waits for DRAW_GREAT. [DRAW_OK / DRAW_GREAT are tunable defaults.]
+const DRAW_OK = 15, DRAW_GREAT = 24;
+function deepDrawUpgrade(sc, c, R){
+  if(!(c.cat==='suited-connector'||c.cat==='suited-gapper'||c.cat==='weak-suited-ace')) return false;
+  const r = smRatioSc(sc); // net of any posted blind
+  if(r < DRAW_OK) return false; // not deep enough — leave the existing (often leak) grade
+  const ace = c.cat==='weak-suited-ace';
+  R.concept='implied-odds'; R.grades.raise=G.M;
+  if(r >= DRAW_GREAT && !ace){ R.best='call'; R.grades.call=G.C; R.grades.fold=G.D; }
+  else { R.best='fold'; R.grades.fold=G.C; R.grades.call=G.D; }
+  R.why = `Deep stacks change this. ~${r.toFixed(0)}× behind gives ${label(c)} real <span class="concept">implied odds</span> — the deeper you are, the more these suited, connected hands pay off when they hit big. ${ace
+    ? `It's still <span class="concept">dominated</span> for top pair, so keep it in position and don't overdo it — a call is defensible, not mandatory.`
+    : (R.best==='call'
+      ? `At this depth a call is good; the cap that kills it around 100bb isn't biting here.`
+      : `Deep enough that a call is defensible — but these hands want even more room than a set-mine (the clear call waits for ~${DRAW_GREAT}×, a tunable house bar), so fold still leans best.`)} <em>Not the leak at this depth.</em>`;
+  return true;
+}
+// Defend-price bands shared by bbdef and the blind squeeze defend: the cheap and medium
+// break-even edges. Grading band edges, not tuned archetype numbers — but the two graders
+// must move in lockstep, so change them HERE only.
+const BAND_CHEAP = 0.28, BAND_MEDIUM = 0.38;
+// BB defense break-even: call = open-1; pot before your call = open + sb + 1(your bb) + callers*open
+// When the OPENER is the small blind (blind-vs-blind) there is no dead SB money —
+// the SB's half-blind is already inside their raise — so don't double-count it.
+function bbDefBE(openBB, callers, openerIsSB){
+  const call = openBB - 1;
+  const pot = openBB + (openerIsSB ? 0 : S.sbbb) + 1 + callers*openBB;
+  return call / (pot + call);
+}
+
+/* ================================================================
+   HAND CLASSIFICATION
+   ================================================================ */
+function parseHand(n){
+  if(n.length===2){ const i=rIdx(n[0]); return {hi:i,lo:i,hiCh:n[0],loCh:n[1],suited:false,pair:true,gap:0}; }
+  let a=rIdx(n[0]), b=rIdx(n[1]); const suited = n[2]==='s';
+  const hi=Math.max(a,b), lo=Math.min(a,b);
+  return {hi,lo,hiCh:RANKS[hi],loCh:RANKS[lo],suited,pair:false,gap:hi-lo};
+}
+
+// returns {tier, cat, label, ...parsed}
+function classify(n){
+  const h = parseHand(n);
+  const {hi,lo,suited,pair,gap} = h;
+  let tier=5, cat='offsuit-trash', label='offsuit junk';
+
+  if(pair){
+    if(hi>=10){tier=1;cat='premium-pair';label='premium pocket pair';}
+    else if(hi>=8){tier=2;cat='big-pair';label='big pocket pair';}
+    else if(hi>=6){tier=3;cat='mid-pair';label='medium pocket pair';}
+    else {tier=4;cat='small-pair';label='small pocket pair';}
+    return {...h,tier,cat,label,n};
+  }
+
+  const A=12,K=11,Q=10,J=9,T=8;
+  if(hi===A){
+    if(suited){
+      if(lo>=Q){tier=1;cat='premium-suited-ace';label='premium suited ace';}
+      else if(lo===J){tier=2;cat='strong-suited-ace';label='strong suited ace (AJs)';}
+      else if(lo===T){tier=3;cat='good-suited-ace';label='suited ace (ATs)';}
+      else {tier=4;cat='weak-suited-ace';label='weak suited ace';}
+    } else {
+      if(lo===K){tier=1;cat='premium-offsuit-ace';label='AK offsuit';}
+      else if(lo===Q){tier=2;cat='strong-offsuit-ace';label='AQ offsuit';}
+      else if(lo===J){tier=3;cat='aj-offsuit';label='AJ offsuit';}
+      else if(lo===T){tier=4;cat='at-offsuit';label='AT offsuit';}
+      else {tier=5;cat='weak-offsuit-ace';label='weak offsuit ace';}
+    }
+    return {...h,tier,cat,label,n};
+  }
+  if(hi===K){
+    if(suited){
+      if(lo===Q){tier=2;cat='kq-suited';label='KQ suited';}
+      else if(lo>=T){tier=3;cat='suited-broadway';label='suited broadway (KJs/KTs)';}
+      else {tier=5;cat='weak-suited-king';label='weak suited king';}
+    } else {
+      if(lo===Q){tier=3;cat='kq-offsuit';label='KQ offsuit';}
+      else if(lo===J){tier=4;cat='kj-offsuit';label='KJ offsuit';}
+      else {tier=5;cat='offsuit-trash';label='offsuit king junk';}
+    }
+    return {...h,tier,cat,label,n};
+  }
+  if(hi===Q){
+    if(suited){
+      if(lo>=T){tier=3;cat='suited-broadway';label='suited broadway (QJs/QTs)';}
+      else if(lo===J-2){tier=4;cat='suited-gapper';label='Q9 suited';} // Q9s
+      else {tier=5;cat='weak-suited-queen';label='weak suited queen';}
+    } else {
+      if(lo===J){tier=4;cat='qj-offsuit';label='QJ offsuit';}
+      else {tier=5;cat='offsuit-trash';label='offsuit queen junk';}
+    }
+    return {...h,tier,cat,label,n};
+  }
+  if(hi===J){
+    if(suited){
+      if(lo===T){tier=3;cat='suited-broadway';label='JT suited';}
+      else if(lo===7){tier=4;cat='suited-gapper';label='J9 suited';} // J9s (gap2 but decent)
+      else {tier=5;cat='suited-gapper';label='suited jack gapper';}
+    } else {tier=5;cat='offsuit-trash';label='offsuit jack junk';}
+    return {...h,tier,cat,label,n};
+  }
+
+  // lower cards (hi <= T-1 i.e. ten or below, ten handled mostly above via broadway pairs)
+  if(suited){
+    if(gap===1){tier=4;cat='suited-connector';label='suited connector';}
+    else if(gap===2){tier=5;cat='suited-gapper';label='suited one-gapper';}
+    else {tier=5;cat='suited-gapper';label='suited gapper';}
+  } else {
+    tier=5;cat='offsuit-trash';label='offsuit junk';
+  }
+  // T-high suited not caught above (T9s,T8s,T7s)
+  if(hi===T && suited){
+    if(gap===1){tier=4;cat='suited-connector';label='suited connector (T9s)';}
+    else {tier=5;cat='suited-gapper';label='suited gapper (T8s/T7s)';}
+  }
+  return {...h,tier,cat,label,n};
+}
+
+/* ================================================================
+   GRADING ENGINE
+   getRuling(sc) -> {grades:{fold,call,raise}, best, concept, why,
+                     math, callLabel, raiseLabel, leak, antiFold}
+   grade values: 'CORRECT' | 'DEFENSIBLE' | 'MISTAKE'
+   ================================================================ */
+const G = { C:'CORRECT', D:'DEFENSIBLE', M:'MISTAKE' };
+
+function bestOf(grades){
+  if(grades.fold===G.C) {/* fold may co-best */}
+  // priority: a CORRECT raise/call beats CORRECT fold for messaging only if it's the clear value line.
+  // We instead set `best` explicitly per branch, so this is a fallback.
+  for(const k of ['raise','call','fold']) if(grades[k]===G.C) return k;
+  for(const k of ['call','raise','fold']) if(grades[k]===G.D) return k;
+  return 'fold';
+}
+
+function ruling(sc){
+  const c = sc.cls;
+  const t = c.tier;
+  const oc = openCat(sc.openBB);
+  const ip = sc.type==='vsopen' || sc.type==='squeeze' ? ipVsOpener(sc.hero, sc.opener) : false;
+  const pc = posCat(sc.hero);
+  const ratio = smRatioSc(sc); // blind-aware (net of any posted blind); only consumed by vsopen
+  let R = { grades:{fold:G.M, call:G.M, raise:G.M}, best:'fold', concept:'', why:'',
+            math:'', callLabel:'Call', raiseLabel:'Raise', leak:false, antiFold:false };
+
+  const offBway = (c.hi>=8 && c.lo>=8 && !c.pair && !c.suited); // offsuit broadway
+
+  if(sc.type==='rfi') rfi(sc,c,t,pc,R);
+  else if(sc.type==='vsopen') vsopen(sc,c,t,oc,ip,pc,ratio,offBway,R);
+  else if(sc.type==='squeeze') squeeze(sc,c,t,oc,ip,offBway,R);
+  else if(sc.type==='limped') limped(sc,c,t,offBway,R);
+  else if(sc.type==='bbdef') bbdef(sc,c,t,offBway,R);
+
+  // ---- central leak / anti-fold tagging ----
+  const tempting = c.pair || c.suited || offBway;
+  if(R.best==='fold' && R.grades.call===G.M && tempting && sc.type!=='rfi') R.leak = true;
+  // anti-fold only where calling is clearly CORRECT and folding is at most DEFENSIBLE.
+  // Armed in the defend spot types, and (batch 4) on every CORRECT blind defend in ANY
+  // spot type — the over-fold stat measures the decision, not which generator dealt it.
+  if(R.grades.call===G.C && R.grades.fold!==G.M &&
+     (sc.type==='bbdef' || sc.type==='limped' ||
+      ((sc.type==='squeeze'||sc.type==='vsopen') && postedBlind(sc.hero)>0))) R.antiFold = true;
+
+  return R;
+}
+
+/* ---- RFI (folded to hero) ---- */
+function rfi(sc,c,t,pc,R){
+  R.callLabel='Limp'; R.raiseLabel='Open'; R.concept='position';
+  const open = ()=>{R.grades.raise=G.C; R.best='raise';};
+  const fold = ()=>{R.grades.fold=G.C; R.best='fold';};
+  // limp graded as a teaching tool: defensible only for speculative hands, else mistake.
+  // At $2/$5+ even the speculative limp goes (SHIFT-2, well-supported: far less open-
+  // limping in reg-heavy pools, and a lone limp invites the iso/3-bet leveling war).
+  const spec = (c.cat==='small-pair'||c.cat==='suited-connector');
+  R.grades.call = (spec && !regHeavy()) ? G.D : G.M;
+
+  const offBway = (c.hi>=8&&c.lo>=8&&!c.pair&&!c.suited);
+  const isAJoKQo = (c.cat==='aj-offsuit'||c.cat==='kq-offsuit');
+
+  if(pc==='early'){
+    if(t<=2){open(); R.grades.fold=G.M;}
+    else if(t===3){
+      if(isAJoKQo){R.grades.raise=G.D; fold();}
+      else {open(); R.grades.fold=G.M;}
+    }
+    else if(t===4){
+      if(c.cat==='small-pair'||c.cat==='suited-connector'||c.cat==='weak-suited-ace'){R.grades.raise=G.D; fold();}
+      else {fold();}
+    }
+    else fold();
+    R.why = R.best==='raise'
+      ? `From up front, ${label(c)} is strong enough to open. Early position means many players act behind, so your opening range is tight — this one clears the bar.`
+      : `${label(c)} is below an early-position open. Out of the gate with this hand you'd just be bloating pots out of position; <span class="concept">position</span> hasn't been earned yet. Fold and wait for a better spot or a later seat.`;
+  }
+  else if(pc==='mid'){
+    if(t<=3){
+      open(); R.grades.fold = isAJoKQo ? G.D : G.M;
+    } else if(t===4){ open(); R.grades.fold=G.D; }
+    else {
+      if(c.cat==='suited-gapper'||c.cat==='weak-suited-king'||c.cat==='weak-suited-queen'){R.grades.raise=G.D; fold();}
+      else fold();
+    }
+    R.why = R.best==='raise'
+      ? `Middle position widens your opening range a bit; ${label(c)} is a fine open here. Raise to take the initiative and try to win it now.`
+      : `From the middle, ${label(c)} is still a fold first-in — it plays poorly and isn't worth opening into the players left behind.`;
+  }
+  else if(pc==='late'){
+    const stealBand = (c.cat==='suited-gapper'||c.cat==='weak-suited-king'||c.cat==='weak-suited-queen');
+    if(t<=4){ open(); R.grades.fold = t<=3 ? G.M : G.D; }
+    else {
+      // Bottom-of-the-barrel steals print vs $1/$2 blinds that over-fold; at $2/$5+ the
+      // pool 3-bets and plays back too much for them to auto-profit (SHIFT-2) — from the
+      // CUTOFF the same open flips to a lean-fold there. The BUTTON keeps the open at any
+      // stakes: stealing vs two players with position is the most robust open in poker,
+      // and $2/$5 regs open these buttons themselves (reviewer fix — never train the
+      // over-fold). $1/$2 verdicts unchanged.
+      if(stealBand && regHeavy() && sc.hero==='CO'){R.grades.raise=G.D; fold();}
+      else if(stealBand){open(); R.grades.fold=G.D;}
+      else {R.grades.raise=G.D; fold();}
+    }
+    R.why = R.best==='raise'
+      ? `On the button / cutoff you open very wide because you'll have <span class="concept">position</span> postflop. ${label(c)} is a clear open — raise and apply pressure.${stealBand && regHeavy() && sc.hero==='BTN' ? ` Expect more 3-bets behind at $${S.sb}/$${S.bb} — the button steal still prints, just go in with a plan for the pushback.`:``}`
+      : `Even from late position ${label(c)} is at the very bottom; a fold is cleanest, though a steal-raise is defensible.${stealBand && regHeavy() ? ` At $${S.sb}/$${S.bb} this one flips from the cutoff: reg-heavy blinds tend to 3-bet and play back too often for a bottom-of-the-barrel steal to auto-profit — the same open prints at looser $1/$2 tables (and stays an open on the button).`:``}`;
+  }
+  else { // sb
+    if(t<=4){ R.grades.raise=G.C; R.best='raise'; R.grades.fold = t<=2 ? G.M : G.D; }
+    else { R.grades.raise=G.D; fold(); }
+    R.concept='position';
+    R.why = R.best==='raise'
+      ? `From the small blind, play raise-or-fold: open ${label(c)} to avoid a tricky out-of-position call. Limping invites the big blind along and surrenders initiative.`
+      : `${label(c)} is below a small-blind open. Since you'll be out of position the whole hand, fold rather than get involved.`;
+  }
+  if(R.grades.call===G.M && R.best!=='fold'){
+    R.why += ` <em>Note:</em> open-limping here is a leak — <span class="concept">initiative</span> matters, so raise or fold rather than limp.${spec && regHeavy() ? ` At $${S.sb}/$${S.bb} even the speculative limp goes: these pools rarely open-limp, and a lone limp tends to invite the regs' iso-and-3-bet leveling war.`:``}`;
+  } else if(spec && regHeavy() && R.best==='fold'){
+    // The D→M limp flip must name its stakes logic even in fold-best spots (reviewer fix)
+    R.why += ` (And don't limp it instead: at $${S.sb}/$${S.bb} these pools rarely open-limp, and a lone limp tends to invite the regs' iso-and-3-bet leveling war.)`;
+  }
+}
+
+/* ---- vs single open ---- */
+function vsopen(sc,c,t,oc,ip,pc,ratio,offBway,R){
+  R.raiseLabel = '3-bet'; R.callLabel='Call';
+  R.math = mathVsOpen(sc, ratio, ip, c);
+
+  if(t===1){
+    R.grades.raise=G.C; R.grades.call=G.D; R.grades.fold=G.M; R.best='raise'; R.concept='domination';
+    R.why = `${label(c)} is premium. 3-bet for value — you want money in now while you <span class="concept">dominate</span> the opener's range (you hold the better version of the hands they continue with). Flatting is fine in position, but folding throws away a clear winner.${regHeavy()?` At $${S.sb}/$${S.bb} lean even harder on the 3-bet: the reg pool's 3-bet/4-bet dynamic tends to pay a premium off, while a flat invites squeezes behind you.`:``}`;
+    return;
+  }
+  if(t===2){
+    if(ip){
+      if(oc==='large'){
+        R.grades.call=G.C; R.grades.raise=G.D; R.grades.fold = c.cat==='big-pair'?G.M:G.D; R.best='call';
+        R.concept='equity-realization';
+        R.why = `Against a big open, ${label(c)} still continues in position — call to keep dominated hands in and <span class="concept">realize your equity</span> with position. A 3-bet is fine; folding a pair this strong would be too tight.`;
+      } else {
+        R.grades.call=G.C; R.grades.raise=G.C; R.grades.fold=G.M; R.best='call';
+        R.concept='equity-realization';
+        R.why = `In position with ${label(c)}, both calling and 3-betting are great — you have the equity and you'll <span class="concept">realize it</span> well acting last. Folding is a clear mistake.`;
+      }
+    } else { // blinds
+      R.grades.raise=G.C; R.grades.call=G.D; R.grades.fold = c.cat==='big-pair'?G.M:G.D; R.best='raise';
+      R.concept='position';
+      R.why = `Out of the blinds with ${label(c)}, prefer 3-bet-or-fold: raising wins the hand outright a lot and avoids a tough out-of-position call. Flatting is okay but you give up <span class="concept">equity realization</span> by being first to act.`;
+    }
+    return;
+  }
+  if(t===3){
+    if(ip){
+      if(oc==='small'){
+        R.grades.call=G.C; R.grades.raise=G.D; R.grades.fold = offBway?G.D:G.M; R.best='call';
+        R.concept='reverse-implied-odds';
+        R.why = `In position vs a small open, ${label(c)} is a comfortable call — good equity and you act last. Folding the stronger holdings here would be too tight.`;
+      } else if(oc==='medium'){
+        R.grades.call=G.C; R.grades.raise=G.D; R.grades.fold=G.D; R.best='call';
+        R.concept='reverse-implied-odds';
+        R.why = `In position vs a medium open, ${label(c)} can call — but it's getting marginal. Watch for <span class="concept">domination</span>: when you make top pair you can be out-kicked. A fold is defensible.`;
+      } else { // large
+        R.best='fold'; R.grades.fold=G.C;
+        R.grades.raise = (c.cat==='suited-broadway'||c.cat==='good-suited-ace') ? G.D : G.M;
+        R.grades.call = G.D;
+        R.concept = offBway ? 'domination' : 'reverse-implied-odds';
+        R.why = `Against a big open, ${label(c)} should fold even in position. ${offBway
+          ? `It's an offsuit broadway that's frequently <span class="concept">dominated</span> — you flop top pair and lose to a better kicker.`
+          : `Its value comes from flush/straight potential, but at the cap the payoff is too small to justify the price (<span class="concept">reverse implied odds</span>: when you hit a second-best flush you lose a big pot).`} Calling here is loose; a light 3-bet is the only aggressive option worth considering.${regHeavy()?` (One $${S.sb}/$${S.bb} read: a big open from a reg is less of a pure honesty tell than the $1/$2 version — but the price still doesn't work for this hand.)`:``}`;
+      }
+    } else { // OOP / blinds
+      if(oc==='small'){
+        R.grades.call=G.C; R.grades.fold=G.D; R.grades.raise=G.D; R.best='call';
+        R.concept='reverse-implied-odds';
+        R.why = `Out of position vs a small open, ${label(c)} can call for the cheap price, though you won't <span class="concept">realize equity</span> as well first-to-act. Folding or 3-betting are both fine.`;
+      } else if(oc==='medium'){
+        R.best='fold'; R.grades.fold=G.C; R.grades.call=G.D; R.grades.raise=G.D;
+        R.concept='equity-realization';
+        R.why = `Out of position vs a medium open, fold ${label(c)} — you can't <span class="concept">realize equity</span> well from out of position and it's often dominated. A 3-bet is the alternative; flatting is loose.`;
+      } else { // large OOP
+        R.best='fold'; R.grades.fold=G.C; R.grades.call=G.M; R.grades.raise=G.D;
+        R.concept = offBway ? 'domination' : 'reverse-implied-odds';
+        R.why = `Big open, out of position, ${label(c)}: this is a fold. ${offBway
+          ? `Offsuit broadways are <span class="concept">dominated</span> and play badly first-to-act.`
+          : `The implied-odds payoff is capped and you'll bleed value out of position.`} Calling here is exactly the kind of loose continue this trainer is built to fix.`;
+      }
+    }
+    return;
+  }
+  // t===4 (LEAK ZONE) and t===5
+  if(t===4){
+    // Small pocket pairs are a pure set-mine: grade off the cap-aware ratio, not raw bb.
+    // Small opens -> profitable call; mid opens -> marginal; big opens -> the cap-driven leak.
+    if(c.cat==='small-pair'){
+      const v = setMineVerdict(ratio);
+      R.concept='set-mining'; R.grades.raise=G.M;
+      if(v==='call'){
+        R.best='call'; R.grades.call=G.C; R.grades.fold=G.D;
+        R.why = `Set-mine it. You're ~${ratio.toFixed(0)}× behind — comfortably past what set-mining needs (${smNeedShort}), and a loose table that overcalls only sweetens the payoff when you flop a set. Calling ${label(c)} is the profitable play; folding just leaves money on the table. <em>This is not the leak.</em>`;
+      } else if(v==='thin'){
+        R.best='fold'; R.grades.fold=G.C; R.grades.call=G.D;
+        R.why = `Marginal. ~${ratio.toFixed(0)}× behind sits around the break-even line (${smNeedShort}). Against a loose, paying field a call is fine — defensible — but fold leans best as the cap pinches the payoff. <em>This isn't the big leak;</em> that's the bigger opens.`;
+      } else {
+        R.best='fold'; R.grades.fold=G.C; R.grades.call=G.M;
+        R.why = `This is the leak. Only ~${ratio.toFixed(0)}× behind — below what set-mining can pay even against a station, because at this depth you can't win enough on the ~1-in-8.5 flops where you actually hit your set. ${label(c)} folds to an open this big.`;
+      }
+      return;
+    }
+    if(deepDrawUpgrade(sc,c,R)) return; // deep stacks: speculative suited hands play
+    if(oc==='small'){
+      if(ip){
+        R.grades.call=G.D; R.grades.fold=G.D; R.best='fold';
+        R.concept = 'implied-odds';
+        R.why = `Vs a small open in position, ${label(c)} has the price and the position to peel for <span class="concept">implied odds</span>. Calling or folding are both reasonable — this is a legitimate spot, not the leak.`;
+      } else { // SB
+        R.best='fold'; R.grades.fold=G.C; R.grades.call=G.D;
+        R.concept = 'reverse-implied-odds';
+        R.why = `Out of position vs even a small open, ${label(c)} leans fold — you don't close the action and you realize equity poorly. A speculative call is defensible but not ideal.`;
+      }
+    } else if(oc==='medium'){
+      R.best='fold'; R.grades.fold=G.C;
+      if(c.cat==='suited-connector'){
+        R.grades.call = ip ? G.D : G.M;
+        R.concept='implied-odds';
+        R.why = `${label(c)} is a real connector, but vs a medium open the <span class="concept">implied odds</span> are capped at 100bb. ${ip?`In position it's a lean-fold (a call is defensible).`:`Out of position the call is a leak — fold.`}`;
+      } else { // weak suited ace
+        R.grades.call = ip ? G.D : G.M;
+        R.concept='domination';
+        R.why = `Weak suited aces are <span class="concept">dominated</span> (a real ace has you out-kicked) and only the nut-flush draw pays. Vs a medium open, ${ip?`a call is borderline in position`:`calling out of position is the leak`} — folding is best.`;
+      }
+    } else { // large
+      R.best='fold'; R.grades.fold=G.C;
+      R.grades.call = G.M;
+      R.grades.raise = (c.cat==='weak-suited-ace' && ip) ? G.D : G.M;
+      R.concept = (c.cat==='weak-suited-ace'?'domination':'implied-odds');
+      R.why = `This is the core leak. Vs a big open, ${label(c)} must fold. It's a speculative hand whose payoff comes from rare big flops; the 100bb cap puts a hard ceiling on that jackpot, so it's a pure <span class="concept">implied-odds</span> bet that no longer pays. ${c.cat==='weak-suited-ace'?`It's also <span class="concept">dominated</span> by better aces.`:''} Calling looks tempting because it's suited/connected — but that's exactly the trap.`;
+    }
+    // SHIFT-1 (coach-consensus): the $2/$5+ reg pool tends to over-fold to 3-bets, so a
+    // light 3-bet with a suited, playable hand becomes a real option IN POSITION vs
+    // small/medium opens — defensible, never best. $1/$2 grades unchanged; big opens
+    // excluded (those tend to be honest, and the 3-bet just isolates against strength).
+    if(regHeavy() && ip && oc!=='large' && (c.cat==='suited-connector'||c.cat==='weak-suited-ace')){
+      R.grades.raise = G.D;
+      R.why += ` One $${S.sb}/$${S.bb} adjustment: a light 3-bet here is defensible — these reg pools tend to over-fold to 3-bets, and a suited hand barrels well on later streets.`;
+    }
+    return;
+  }
+  // t===5
+  R.best='fold'; R.grades.fold=G.C;
+  if(oc==='small' && ip && c.cat==='suited-gapper' && c.gap===2){
+    R.grades.call=G.D; R.concept='reverse-implied-odds';
+    R.why = `${label(c)} is a one-gapper — in position vs a small open a call is barely defensible, but folding is best. The gap and the cap mean weak <span class="concept">implied odds</span>: when you hit, it's often a second-best hand (<span class="concept">reverse implied odds</span>).`;
+  } else {
+    R.grades.call=G.M;
+    R.concept = c.suited ? 'reverse-implied-odds' : 'pot-odds';
+    R.why = c.suited
+      ? `${label(c)} is trash facing a raise. Being suited or gappy tempts a call, but it makes weak hands — when it connects you're often drawing to a <span class="concept">reverse-implied-odds</span> disaster (the low flush that loses to a higher one). Fold.`
+      : `${label(c)} has no business calling a raise. The <span class="concept">pot odds</span> never justify a dominated offsuit hand with no real draw. Easy fold.`;
+  }
+}
+
+/* ---- squeeze (open + caller(s)) ---- */
+function squeeze(sc,c,t,oc,ip,offBway,R){
+  R.raiseLabel='Squeeze'; R.callLabel='Call'; R.concept='squeeze';
+  const ratio = smRatioSc(sc); // net of any posted blind
+  const posted = postedBlind(sc.hero);
+  const callAmt = sc.openBB - posted;
+  const potBefore = sc.openBB*(1+sc.callers) + S.sbbb + 1; // opener + each caller's flat + blinds (hero's posted chips included)
+  const be = callAmt/(potBefore+callAmt);
+  R.math = `Open ${sc.openBB.toFixed(1)}bb (${$amt(sc.openBB)}) + ${sc.callers} caller(s) → a bloated, multiway pot.${posted>0?`\nYour posted ${posted.toFixed(1)}bb blind discounts the call to ${callAmt.toFixed(1)}bb.`:``}\nPrice: call ${callAmt.toFixed(1)}bb into ~${potBefore.toFixed(1)}bb → need ≈ ${(be*100).toFixed(0)}% equity.\nSet-mine ratio ≈ ${ratio.toFixed(0)}× (want ~10–12× in a loose game; textbook 15×). Squeeze sizing ≈ ${(sc.openBB*4 + sc.callers*sc.openBB).toFixed(0)}bb.`;
+
+  if(t===1){
+    R.grades.raise=G.C; R.grades.call=G.D; R.grades.fold=G.M; R.best='raise';
+    R.why = `${label(c)} is premium — <span class="concept">squeeze</span> (re-raise over the open and callers). There's dead money from the callers, and you want a big pot heads-up with the best hand. Calling lets too many players in; folding wastes a monster.`;
+    return;
+  }
+  if(t===2){
+    if(ip){R.grades.raise=G.C; R.grades.call=G.C; R.grades.fold = c.cat==='big-pair'?G.M:G.D; R.best='raise';}
+    else {R.grades.raise=G.C; R.grades.call=G.D; R.grades.fold = c.cat==='big-pair'?G.M:G.D; R.best='raise';}
+    R.why = `With ${label(c)} facing an open and a caller, <span class="concept">squeezing</span> is strong — punish the limp-along money. ${ip?`Calling to play a multiway pot in position is also fine.`:`Out of position, prefer the squeeze over a flat.`}`;
+    return;
+  }
+  // Blind heroes from t3 down: price-aware defend — the same treatment BB Defense got.
+  // The callers' flats are dead money already in the pot and the posted blind discounts
+  // the call, so the verdict keys off the honest net price (the same cheap/medium bands
+  // as bbdef) instead of the headline open size. With at least one cold-caller in, no
+  // 3–12bb live open prices a blind's net call worse than ~31%, so this block owns every
+  // blind squeeze defend; the be<=0.38 guard is a tripwire in case the size tables ever
+  // widen. Tuned bars (SM_*/DRAW_*) are untouched — they still own the genuinely
+  // expensive no-caller prices, which only non-blind seats see in this spot type.
+  if(posted>0 && be<=BAND_MEDIUM){
+    const closing = sc.hero==='BB'; // the BB closes the action; the SB does not (BB still behind)
+    const cheap = be<=BAND_CHEAP;
+    const playable = !(!c.pair && !c.suited && c.gap>=3 && c.hi<=9); // same bottom-gate as bbdef
+    const decentT4 = (c.cat==='small-pair'||c.cat==='suited-connector');
+    // The SB defends a notch tighter than the BB at every band: it never closes the
+    // action (the BB can still squeeze behind) and plays the whole hand from the worst seat.
+    const defend = cheap
+      ? (closing ? playable : (t<=3 || decentT4 || (c.suited && playable && t<=4)))
+      : (closing ? (t<=3 || decentT4) : (decentT4 || c.cat==='mid-pair'));
+    if(defend){
+      R.best='call'; R.grades.call=G.C; R.grades.fold=G.D; R.grades.raise = t<=3?G.D:G.M;
+      R.concept = c.pair ? 'set-mining' : 'pot-odds';
+      R.why = c.pair
+        ? `Multiway is where ${label(c)} wants to be, and the dead money pays for it: the net call needs only ~${(be*100).toFixed(0)}% equity, and the pot is already big enough to reward a <span class="concept">set-mine</span> before stacks even go in.${closing?` You close the action.`:` You don't close the action from the small blind, but at this price the call holds up.`} Folding here is the over-fold — <em>this is not the leak</em>.`
+        : `The callers' dead money sets the price: ~${(be*100).toFixed(0)}% equity on the net call makes ${label(c)} a <span class="concept">pot-odds</span> defend.${closing?` You close the action, so nobody can squeeze behind you.`:` The big blind can still squeeze behind you, so go in eyes-open — but the price covers that risk.`} Over-folding good multiway prices is its own mistake — <em>not the leak</em>.`;
+    } else {
+      R.best='fold'; R.grades.fold=G.C;
+      const callOk = closing || c.suited || playable;
+      R.grades.call = callOk ? G.D : G.M;
+      R.grades.raise = t<=3 ? G.D : G.M;
+      R.concept = c.suited ? 'reverse-implied-odds' : (offBway ? 'domination' : 'pot-odds');
+      R.why = `The dead money makes the price look friendly (~${(be*100).toFixed(0)}%), but ${label(c)} is ${c.suited?`the kind of hand that makes second-best stuff in a crowd — <span class="concept">reverse implied odds</span>`:offBway?`<span class="concept">dominated</span> in a pot this crowded`:`too weak to turn the price into a hand`}${closing?``:`, and from the small blind you don't even close the action`}. Fold leans best${callOk?`; a loose call is defensible, not good`:` — even cheap, calling junk from the blinds just bleeds`}.`;
+    }
+    return;
+  }
+  if(t===3){
+    if(oc==='small'){
+      R.grades.call=G.D; R.grades.fold=G.D; R.grades.raise=G.D; R.best='call';
+      R.why = `Multiway vs a small open, ${label(c)} can come along cheaply, squeeze as a play, or fold — all defensible. Position and the good price make a call reasonable.`;
+    } else {
+      R.best='fold'; R.grades.fold=G.C;
+      if(c.cat==='mid-pair'){
+        const v=setMineVerdict(ratio); R.concept='set-mining';
+        if(v==='leak'){ R.grades.call=G.M;
+          R.why=`Vs a bigger open with callers, ${label(c)} folds — only ~${ratio.toFixed(0)}× behind, below what set-mining pays at the cap even multiway. Calling is the leak.`;
+        } else { R.grades.call=G.D;
+          R.why=`Multiway vs a bigger open, ${label(c)} can come along to set-mine — ~${ratio.toFixed(0)}× behind with extra callers to pay you off makes a call defensible (fold is still fine; ${smNeedShort}).`;
+        }
+      } else {R.grades.call=G.M; R.concept = offBway?'domination':'reverse-implied-odds';
+        R.why=`Into a raised, multiway pot, ${label(c)} should fold — it's ${offBway?`an offsuit broadway that's <span class="concept">dominated</span>`:`too speculative to call for this price`}. Squeezing as a bluff is the only non-fold worth a thought.`;
+      }
+    }
+    return;
+  }
+  if(t===4){
+    // Small pairs set-mine especially well multiway (more callers to pay you off) — grade
+    // off the cap-aware ratio across all open sizes, same bar as heads-up.
+    if(c.cat==='small-pair'){
+      const v=setMineVerdict(ratio); R.concept='set-mining'; R.grades.raise=G.M;
+      if(v==='call'){
+        R.best='call'; R.grades.call=G.C; R.grades.fold=G.D;
+        R.why=`Multiway is exactly where ${label(c)} wants to be — ~${ratio.toFixed(0)}× behind with callers already in to pay you off when you flop a set. Set-mine it: a profitable call, not the leak.`;
+      } else if(v==='thin'){
+        R.best='fold'; R.grades.fold=G.C; R.grades.call=G.D;
+        R.why=`${label(c)} can come along to set-mine multiway — ~${ratio.toFixed(0)}× behind is around break-even (${smNeedShort}), and the extra callers help. A call is defensible; fold leans best at the cap.`;
+      } else {
+        R.best='fold'; R.grades.fold=G.C; R.grades.call=G.M;
+        R.why=`${label(c)} vs an open this big — only ~${ratio.toFixed(0)}× behind, below what set-mining pays even multiway at the cap. Calling is the leak; fold.`;
+      }
+      return;
+    }
+    if(deepDrawUpgrade(sc,c,R)) return; // deep stacks: speculative suited hands play even multiway
+    if(oc==='small'){
+      if(c.cat==='suited-connector'){
+        R.grades.call=G.D; R.grades.fold=G.D; R.best='fold'; R.concept='implied-odds';
+        R.why = `Cheap and multiway is the one place ${label(c)} likes: more players means better <span class="concept">implied odds</span> when you flop big. Calling or folding are both fine — <em>not the leak</em>.`;
+      } else {
+        R.best='fold'; R.grades.fold=G.C; R.grades.call=G.D; R.concept='domination';
+        R.why=`Weak suited ace multiway: a call is barely defensible for the nut-flush potential, but it's <span class="concept">dominated</span> and folding is cleaner.`;
+      }
+    } else {
+      R.best='fold'; R.grades.fold=G.C;
+      R.grades.call=G.M; R.concept = c.cat==='weak-suited-ace'?'domination':'implied-odds';
+      R.why=`Into a raised multiway pot, ${label(c)} folds. The pot is bloated, the cap limits the payoff, and the hand is ${c.cat==='weak-suited-ace'?`<span class="concept">dominated</span>`:`too weak`}. This is the leak — let it go.`;
+    }
+    return;
+  }
+  // t5
+  R.best='fold'; R.grades.fold=G.C; R.grades.call=G.M;
+  R.concept = c.suited?'reverse-implied-odds':'pot-odds';
+  R.why = `${label(c)} into an open + caller(s) is a fold. ${c.suited?`Suited junk in a bloated pot is a <span class="concept">reverse-implied-odds</span> trap — the flushes you make are often beaten.`:`There's no price and no draw worth the <span class="concept">pot odds</span>.`} Don't get sucked into the multiway pot.`;
+}
+
+/* ---- limped pot ----
+   HAND-TRACED FIXTURES (LIM/BvB deepening batch — every new/changed verdict below).
+   Doctrine: rules-dev/research/deep-research-jun10.md LIM-1/2/3, BvB-1, RAKE-1/2, SHIFT-4.
+   All traces at default $1/$2, 100bb cap unless noted; G.C/G.D/G.M = CORRECT/DEFENSIBLE/MISTAKE.
+
+   Limp-reraise (LIM-3: "fold to limp-reraises without a premium"):
+   LR-1  CO 99, 2 limpers, hero iso 6bb, UTG limp-reraises to 19bb.
+         call=13 into pot 0.5+1+1+6+19=27.5 → need 13/40.5≈32%. ratio=(100−19)/13≈6.2×
+         → setMineVerdict='leak' → fold=C(best), call=M, raise=M; R.leak fires (pair=tempting).
+   LR-2  BTN AA, 1 limper, iso 5bb, reraise 14bb → raise(4-bet)=C(best), call=D, fold=M.
+   LR-3  HJ QQ (same, 100bb) → fold=C(best), call=D (set-mine/flip vs a premium-weighted
+         range), raise=M. Same for AKs/AKo at any depth.
+   LR-4  CO 55, cap 300 (deep setting), iso 5bb, reraise 16bb: call=11, behind 284 → ratio≈25.8×
+         ≥ SM_GREAT → call=C(best), fold=D — set-mining a face-up premium is THE deep exception.
+   LR-7  CO QQ, cap 300 (same numbers as LR-4): ratio≈25.8× ≥ SM_GREAT → call=C(best), fold=D,
+         raise=M — depth guard so QQ never grades worse than 55 in the identical spot
+         (reviewer fix: deep-cap inversion).
+   LR-5  BTN AQs (tier 1!) vs limp-reraise → fold=C(best), call=M (leak), raise=M.
+   LR-6  CO KQo → fold=C(best), call=M (leak: offsuit-broadway tempting), raise=M.
+
+   SB completion (RAKE-1 + "would I over-limp this on the button?" test):
+   SBC-1 SB 75s, 1 limper: complete 0.5bb into 2.5bb → need ≈17% — looks free, but the
+         capped drop eats small near-heads-up limped pots (room-specific estimate).
+         OLD: call=C ("over-limp", in-position copy — wrong seat model). NEW: fold=C(best),
+         call=D, raise=M, concept 'rake'. (75s is a t5 suited ONE-gapper, so it takes the
+         t5 arm where raising junk into limpers is the mistake — comment drift fixed
+         batch 3 to match the code; flagged by the test lane.)
+   SBC-2 SB 44, 3 limpers: multiway completion, cheap set-mine intact → call=C(best),
+         fold=D, raise=D (verdict unchanged from old t4 path; label/copy now SB-correct).
+   SBC-3 SB T7s, 2 limpers: t5 → fold=C(best), call=D (suited), raise=M (unchanged verdicts,
+         copy now OOP+rake-correct instead of "in position").
+   SBC-4 SB QQ, 2 limpers: t1 → raise=C(best) (iso big from the worst seat), fold=M.
+
+   BB defense blind-vs-blind (BvB-1: SB opens wide/passive, BB over-folds — defend wider IP;
+   also bbDefBE fix: no dead SB half-blind when the SB is the opener):
+   BVB-1 BB K7s vs SB 4bb open: call 3 into 5 (4+1, no dead SB) → need 37.5% (old formula
+         said 35%). medium + suited + position → call=C(best) (OLD: fold best, call=D).
+   BVB-2 BB T8o vs SB 2.5bb: call 1.5 into 3.5 → need 30% → medium, be≤.33 → call=C(best)
+         (old formula called it "cheap" at 27% — same best action, honest math now).
+   BVB-3 BB Q4o vs SB 4bb: need 37.5% (>33%, offsuit, t5) → fold=C(best), call=D (unchanged).
+   BVB-4 BB A4s vs SB 10bb: call 9 into 11 → need 45% → expensive t4 → fold=C, call=M,
+         raise=D (unchanged verdicts; copy no longer claims hero is out of position).
+   BVB-5 BB 72s vs SB 4bb: suited but hi=7(<T) and gap=5 → fails the gated suited arm →
+         fold=C(best), call=D (reviewer fix: "wider BvB" must not reward bottom-of-deck
+         suited junk at ~37% needed, nor punish its fold via the anti-fold tracker).
+   BVB-6 BB 64s vs SB 4bb: suited, gap=2, lo='4' → passes the gated arm → call=C(best).
+
+   BATCH 2 — vs-Open blind-math fix (no phantom dead money; net price from the blinds).
+   beVsOpen/smRatio gain blind-aware forms: a blind hero calls (open − posted), never the
+   full open. BB removed from the vsopen hero pool — every BB-facing-an-open deal is now
+   type 'bbdef' (one grader per real spot; bbdef has priced the discounted call since batch 1).
+   VSB-1 SB 66 vs 7.5bb open, cap 100: net call 7bb → ratio (100−7.5)/7 ≈ 13.2× ≥ SM_GREAT
+         → call=C(best). OLD (gross 7.5bb call): 12.3× = 'thin' → fold best. VERDICT CHANGE.
+   VSB-2 SB 66 vs 8bb: net 7.5bb → 12.3× → 'thin' → fold=C(best), call=D (boundary control —
+         old gross ratio 11.5× was also 'thin'; verdict unchanged).
+   VSB-3 SB 22 vs 12bb: net 11.5bb → 7.7× < SM_OK → fold=C(best), call=M, leak (the
+         cap-driven fold survives the discount — unchanged).
+   VSB-4 SB A5s vs 5bb: math line now reads call 4.5bb into 6.5bb → need ≈ 41% (was a
+         phantom 5bb call ≈ 43%). Verdict unchanged: the deepDrawUpgrade path fired before
+         (gross 19× ≥ DRAW_OK) and fires now (net 21×) → fold=C(best), call=D either way.
+   SQB-1 BB 44 vs 7.5bb open + 1 caller (squeeze): net call 6.5bb → ratio 92.5/6.5 ≈ 14.2×
+         → call=C(best). OLD: 12.3× 'thin' → fold best. VERDICT CHANGE.
+   BBD-1 BB 33 vs 5bb open (bbdef expensive, be≈38.1%): net call 4bb → ratio 95/4 ≈ 23.8×
+         → call=C(best), fold=D, raise=M. OLD: blanket call=M whose own copy admitted ~19×
+         behind — contradicted SM_GREAT=13 and the vsopen grader rewarding the identical
+         ratio. VERDICT CHANGE (internal-consistency fix, not a constant change).
+   BBD-2 BB 22 vs 12bb: net 11bb → 8× < SM_OK → fold=C(best), call=M, leak (unchanged —
+         "fold the small pairs to the big opens" holds at the cap).
+   BBD-3 BB 66 vs 8bb (t4 small pair, expensive): net 7bb → 13.1× → call=C(best).
+         OLD: call=M. VERDICT CHANGE.
+   BBD-5 BB 88 vs 8bb (t3 MID-pair expensive — classify: mid-pair is 88/99): be 7/16.5 ≈
+         42.4% → expensive; net 92/7 ≈ 13.1× ≥ SM_GREAT → call=C(best), fold=D, raise=M.
+         OLD: blanket call=M. VERDICT CHANGE (covers the t3 "Price the call NET" branch).
+   BBD-4 BB 77 vs 10bb: net 9bb → 10× → 'thin' → fold=C(best), call=D. OLD: call=M —
+         softened to match the tuned 10–12× marginal band.
+   RT-1  buildOne('vsopen') can no longer deal hero='BB' (routing, not a verdict rule).
+
+   BATCH 3 — squeeze-from-the-blinds: price-aware defend (the same treatment BB Defense
+   got). With a cold-caller in, a blind's net price never lands worse than ~31% at live
+   sizes (worst case 1 caller, 12bb open: BB 11/36.5 ≈ 30.1%, SB 11.5/37 ≈ 31.1%), so
+   bbdef's cheap(≤28%)/medium(≤38%) bands own every blind squeeze defend; the tuned
+   SM_ and DRAW_ bars keep the genuinely expensive no-caller prices (non-blind seats only).
+   SQZ-1 BB QJs vs 7.5bb + 1 caller: net 6.5 into 16.5 → need 6.5/23 ≈ 28.3% → medium,
+         closing, t3 → call=C(best), fold=D, raise=D. OLD: oc-keyed t3 'medium' → call=M
+         (leak) while bbdef graded the IDENTICAL price call=C. VERDICT CHANGE.
+   SQZ-2 BB T7s vs 3bb + 2 callers: net 2 into 10.5 → need 16% → cheap + playable →
+         call=C(best), fold=D, raise=M. OLD: t5 blanket call=M. VERDICT CHANGE (mirrors
+         bbdef's cheap-band playable defend).
+   SQZ-3 BB 22 vs 12bb + 1 caller: need 11/36.5 ≈ 30.1% → medium, decentT4 →
+         call=C(best), raise=M. The heads-up ratio alone says 8× ('leak'), but that bar
+         assumes the win must come from stacks — here 36.5bb of dead money pays first
+         (set ≈12% of flops × (pot ~47bb + follow-up) clears the 11bb risk, plus the
+         raw-equity wins). bbdef already grades the identical real spot call=C
+         (bbDefBE(12,1)≈30.1% → medium → decentT4) — one verdict per real spot.
+         OLD: call=M (leak). VERDICT CHANGE.
+   SQZ-4 SB KQo vs 3bb + 1 caller: net 2.5 into 7.5 → need 25% → cheap, t3 →
+         call=C(best), fold=D, raise=D. OLD: all-DEFENSIBLE. VERDICT CHANGE (call D→C).
+   SQZ-5 SB T7s vs 3bb + 2 callers: need 2.5/13 ≈ 19% but t5 + not closing →
+         fold=C(best), call=D, raise=M; the leak tag clears. OLD: call=M + leak.
+         VERDICT CHANGE (softened — a cheap multiway junk-peel is loose, not THE leak).
+   SQZ-6 SB 99 vs 8bb + 1 caller: need 7.5/25 = 30% → medium, mid-pair → call=C(best),
+         fold=D, raise=D. OLD: net heads-up ratio 12.3× = 'thin' → fold best. VERDICT
+         CHANGE (the caller's dead money is what the heads-up ratio bar can't see).
+   SQZ-7 SB 72o vs 3bb + 1 caller: cheap but unplayable junk, not closing → fold=C(best),
+         call=M, raise=M — boundary control, unchanged from the old t5 grade.
+   SQZ-8 BB 72o vs 3bb + 1 caller: cheap, closing → fold=C(best), call=D (mirrors bbdef's
+         cheap-band "a loose call is only marginally okay"). OLD: call=M. VERDICT CHANGE.
+   SQZ-9 BTN QJs vs 7.5bb + 1 caller (REGRESSION): no posted blind → tier logic unchanged
+         → fold=C(best), call=M.
+   SQB-1 re-trace: BB 44 vs 7.5bb + 1 caller now resolves via the band (28.3% → medium,
+         decentT4) → call=C(best), raise=M — same verdict the batch-2 ratio path (14.2×)
+         produced.
+   Residual (logged, NOT changed): t1/t2 squeeze verdicts stay raise-first for blinds
+   (punish the dead money) while bbdef's cheap band grades the same strong hands
+   call-first — a best-action choreography divergence between spot types, not a price
+   error; needs its own design call.
+
+   BATCH 3 — deepDrawUpgrade copy/grade alignment (grades unchanged, copy branch-aware):
+   DDU-1 CO 76s vs 5bb, cap 100: ratio 19× → [15,24) non-ace band → fold=C(best), call=D;
+         copy now hedges ("a call is defensible … fold still leans best") — no
+         "a call is good" prose over a fold-best verdict survives anywhere.
+   DDU-2 CO 76s vs 5bb, cap 300: 59× ≥ DRAW_GREAT → call=C(best); the "a call is good"
+         copy remains only where call IS best.
+
+   BATCH 4 — best action unified BY HAND TIER across the squeeze and bbdef generators;
+   the anti-fold tracker arms on every CORRECT blind defend regardless of generator;
+   the 0.28/0.38 band literals hoisted to BAND_CHEAP/BAND_MEDIUM (values unchanged).
+   Doctrine: premium tiers (t1/t2) take the betting lead from the blind at ANY price —
+   the blind 3-bet for value IS the value squeeze over dead money; medium/speculative
+   tiers stay call-first wherever the net price clears the band (batch 3 behavior).
+   UNI-1 BB AQo vs 5bb + 1 caller, dealt BOTH ways (type squeeze / type bbdef):
+         raise=C(best), call=D, fold=D — identical verdicts. OLD bbdef: the cheap band
+         (be = 4/15.5 ≈ 25.8%) made call=C best while squeeze graded the same real spot
+         raise-first. VERDICT CHANGE (bbdef t2 is now raise-first at every price).
+   UNI-2 BB TT vs 5bb + 1 caller, both ways: raise=C(best), call=D, fold=M (a big pair
+         never folds) — identical. OLD bbdef: call=C best, fold=D. VERDICT CHANGE.
+   UNI-3 BB 55 vs 5bb + 1 caller, both ways: be ≈ 25.8% → cheap → call=C(best), fold=D,
+         raise=M — identical, and unchanged in both paths (medium/speculative tiers were
+         already call-first at this price). Both arm antiFold.
+   UNI-4 BB QJs vs 7.5bb + 1 caller, both ways: be ≈ 28.3% → medium t3 → call=C(best),
+         fold=D, raise=D — identical. OLD bbdef graded raise=M here; with dead money in
+         the pot the light squeeze with a real hand is defensible (aligned with SQZ-1).
+         Heads-up control: BB QJs vs 4bb, callers=0 (be 3/8.5 ≈ 35.3% → medium, non-BvB)
+         keeps raise=M — no dead money, no light-3-bet discount. (NB: QJs vs 7.5bb
+         heads-up is be ≈ 42% = EXPENSIVE band → t3 fold-best path, not this branch.)
+   AF-1  SQZ-2 (BB T7s vs 3bb+2c, call=C best) now arms the anti-fold tracker.
+   AF-2  VSB-1 (SB 66 vs 7.5bb open, call=C best) arms it too — the over-fold stat
+         counts the decision in every generator.
+   AF-3  BTN 55 vs 5bb + 1 caller (squeeze, call=C best via the set-mine bar): antiFold
+         stays FALSE — no posted blind, and squeeze/vsopen arm only for blind heroes.
+   Heads-up t2 sweep (bbdef, callers=0): AQo vs 3bb (be 2/6.5 ≈ 31% medium) and vs 12bb (be 45%
+         expensive) both grade raise=C(best), call=D, fold=D — the 3-bet-or-fold shape
+         now applies at every price; only the why-copy changes by band.
+   (Test-lane sync: suite 12's 200-scenario anti-fold pin was widened by the test lane in
+         step with this batch — blind-hero squeeze/vsopen defends arm, with the converse
+         asserted too. No open action item.)
+
+   BATCH 5 — stakes-aware verdicts for $2/$5+ in the vs-Open and RFI categories.
+   Switch: regHeavy() = S.bb>=5 ($2/$5 and $5/$10 settings; $1/$2, $1/$3, $2/$3 keep the
+   loose-passive doctrine unchanged). Doctrine: SHIFT-1 (coach-consensus: regs over-fold
+   to 3-bets — 3-bet wide suited), SHIFT-2 (well-supported, Blakeman: far more
+   aggression/3-betting, far less open-limping), TAX-1 (coach-consensus: GTO-lite reg
+   type — don't apply $1/$2 population defaults). All copy hedged ("tend to", "rarely").
+   All traces at $2/$5 setting (sb 2, bb 5, sbbb 0.4) vs the $1/$2 default.
+   STK-1 RFI BTN 55 (late t4): $1/$2 open=C(best), limp=D; $2/$5 limp=M, rest identical
+         (SHIFT-2: the speculative open-limp is gone from reg-heavy pools). GRADE FLIP.
+   STK-9 RFI UTG 44 (early t4): $1/$2 fold=C(best), raise=D, limp=D; $2/$5 limp=M with
+         a parenthetical naming the stakes logic even though best stays fold (reviewer
+         fix — every stakes flip carries its copy). GRADE FLIP.
+   STK-2 RFI CO T8s (late t5 suited-gapper steal band — NB Q9s classifies t4 "decent
+         gapper" and opens at any stakes): $1/$2 open=C(best), fold=D; $2/$5 fold=C(best),
+         raise=D — reg-heavy blinds 3-bet/play back too much for the bottom-of-the-barrel
+         steal to auto-profit (SHIFT-2). BEST-ACTION FLIP, CUTOFF ONLY.
+   STK-3 RFI CO K7s (weak-suited-king, same band): same flip as STK-2.
+   STK-10 RFI BTN K7s: IDENTICAL across stakes (open=C best) — the button steal vs two
+         players is the most robust open in poker and $2/$5 regs open these themselves;
+         flipping it would train an over-fold (reviewer fix). The $2/$5 copy adds only a
+         hedged "expect more 3-bets behind" plan note.
+   STK-4 RFI BTN 72o (t5 offsuit-trash): IDENTICAL across stakes (fold=C best, raise=D)
+         — control: trash was never an auto-steal, no doctrine flip.
+   STK-5 vsopen BTN 76s vs UTG 8bb (t4 SC, oc medium, IP): $1/$2 fold=C(best), call=D,
+         raise=M; $2/$5 raise=M→D (SHIFT-1 light 3-bet vs over-folding regs), rest
+         identical. (8bb chosen so the deep-draw gate stays silent: 92/8=11.5×<15.)
+   STK-7 vsopen BTN A5s vs UTG 8bb (t4 WSA, IP): same raise M→D flip at $2/$5.
+   STK-6 vsopen SB 76s vs UTG 8bb (OOP control): IDENTICAL across stakes (fold=C best,
+         call=M, raise=M, leak) — the SHIFT-1 upgrade is position-gated; note the $2/$5
+         sbbb=0.4 changes the net ratio (92/7.6≈12.1×) but crosses no bar.
+   STK-8 vsopen BTN AA vs UTG 5bb (t1 control): verdicts IDENTICAL across stakes
+         (raise=C best, call=D, fold=M); only the copy gains the $2/$5 leveling-war nod
+         ("lean even harder on the 3-bet"). Same shape: t3 IP large copy gains the TAX-1
+         "less of a pure honesty tell" parenthetical, verdict unchanged.
+   Residuals (logged, NOT changed): SHIFT-4's verdict-level encoding (iso-raise grades in
+         the Limped category at $2/$5 — e.g. a J8o-class light iso) is outside this
+         batch's stated vs-Open/RFI scope; the batch-1 copy hedge still covers it. The
+         tuned SM_/DRAW_ bars stay stakes-blind (the "loose game pays off sets" discount
+         at reg-heavy stakes is a tuned-constant question, not a copy fix).
+*/
+function limped(sc,c,t,offBway,R){
+  if(sc.lr) return limpReraise(sc,c,t,offBway,R);
+  if(sc.hero==='SB') return sbComplete(sc,c,t,offBway,R);
+  const isBB = sc.hero==='BB';
+  R.callLabel = isBB ? 'Check' : 'Over-limp';
+  R.raiseLabel = 'Iso-raise';
+  R.concept = 'initiative';
+  R.math = `${sc.limpers} limper(s) in for ${$amt(1)} each. Iso-raise sizing ≈ ${(3 + sc.limpers).toFixed(0)}–${(4+sc.limpers).toFixed(0)}bb (pot-ish) to play heads-up.`;
+
+  if(t<=2 || (t===3 && !offBway)){
+    R.grades.raise=G.C; R.grades.call=G.D; R.grades.fold = t<=2?G.M:G.D; R.best='raise';
+    R.concept='isolation';
+    R.why = `Limpers are weak and passive. <span class="concept">Iso-raise</span> with ${label(c)} to grab the <span class="concept">initiative</span> and play a heads-up pot against one capped range instead of letting a crowd see a cheap flop. ${isBB?`(Checking is fine but passive.)`:`(Over-limping is okay but surrenders control.)`} If you do get called, limped-pot players tend to play face-up: most won't go broke without a big hand, so well-chosen barrels on scare cards tend to print.${regHeavy()?` One stakes note: in $${S.sb}/$${S.bb}-style lineups the field defends isos better — lean these raises toward genuine value there.`:``}`;
+    return;
+  }
+  if(t===3 && offBway){
+    R.grades.raise=G.D; R.grades.call=G.D; R.grades.fold=G.D; R.best='raise'; R.concept='isolation';
+    R.why = `${label(c)} is an offsuit broadway — iso-raising to isolate is fine, over-limping behind is fine, and folding is fine. All reasonable in a limped pot.`;
+    return;
+  }
+  if(t===4){
+    R.grades.call=G.C; R.grades.fold = isBB?G.D:G.D; R.grades.raise=G.D; R.best='call';
+    R.concept = c.cat==='small-pair' ? 'set-mining' : 'implied-odds';
+    R.why = `${isBB?`Check`:`Over-limp`} with ${label(c)} — this is the spot speculative hands love. Entry is cheap and your <span class="concept">implied odds</span> are intact (the opposite of facing a big raise). ${c.cat==='small-pair'?`Cheap <span class="concept">set-mining</span> with a deep stack is exactly right.`:``} Contrast this with folding the same hand to a big open: there it's a trap, here it's a bargain.${isBB?``:` One read to bank for later streets: when a late-position over-limper leads into a limped pot, it tends to be an honest, protection-type bet — while a blind's check tends to mean little.`}`;
+    return;
+  }
+  // t5
+  if(isBB){
+    R.grades.call=G.C; R.grades.fold=G.D; R.grades.raise=G.M; R.best='call';
+    R.concept='pot-odds';
+    R.why = `You're in the big blind with ${label(c)} and the limpers just matched you — <span class="concept">check</span> and see a free flop. No reason to fold a free hand, and raising trash gets no folds from calling stations.`;
+  } else if(c.cat==='suited-gapper' && c.gap===2){
+    R.grades.call=G.D; R.grades.fold=G.C; R.best='fold'; R.concept='implied-odds';
+    R.why = `${label(c)} is a one-gapper — over-limping behind in position is barely defensible for the cheap <span class="concept">implied odds</span>, but folding is best. Most trash should just fold even in a limped pot.`;
+  } else {
+    R.best='fold'; R.grades.fold=G.C; R.grades.call = c.suited?G.D:G.M; R.grades.raise=G.M;
+    R.concept = c.suited?'reverse-implied-odds':'pot-odds';
+    R.why = `${label(c)} should fold. ${c.suited?`Suited trash makes second-best hands — a cheap over-limp is barely defensible but usually a <span class="concept">reverse-implied-odds</span> leak.`:`Offsuit junk has no draw and bad <span class="concept">pot odds</span> even cheaply.`} Iso-raising it as a bluff doesn't work against limpers who call anything.`;
+  }
+}
+
+/* ---- limped pot: facing a LIMP-RERAISE after our iso (LIM-3) ----
+   Hero iso-raised the limpers; one of them now springs in a big re-raise. From most live
+   players that line is overwhelmingly weighted to big pairs — premium-or-fold, with one
+   exception: set-mining a face-up premium when deep enough. */
+function limpReraise(sc,c,t,offBway,R){
+  const iso=sc.lr.iso, rr=sc.lr.rr, callAmt=rr-iso;
+  const pot = S.sbbb + 1 + (sc.limpers-1) + iso + rr;
+  const need = callAmt/(pot+callAmt);
+  const behind = S.cap - rr, ratio = behind/callAmt;
+  R.callLabel='Call'; R.raiseLabel='4-bet'; R.concept='limp-reraise';
+  R.math = `They limped, you raised to ${iso}bb, they re-raised to ${rr}bb (${$amt(rr)}).\nCall ${callAmt}bb into ~${pot.toFixed(1)}bb → need ≈ ${(need*100).toFixed(0)}% equity vs their actual range.${c.pair?`\nSet-mine ratio ≈ ${ratio.toFixed(0)}× behind your call (${smNeedShort}).`:`\n~${behind.toFixed(0)}bb behind.`}`;
+
+  const nut = (c.n==='AA'||c.n==='KK');
+  const nearNut = (c.n==='QQ'||c.n==='AKs'||c.n==='AKo');
+  if(nut){
+    R.grades.raise=G.C; R.grades.call=G.D; R.grades.fold=G.M; R.best='raise';
+    R.why = `A <span class="concept">limp-reraise</span> from a typical live player tends to be the very top of the deck — but you're holding it too. 4-bet ${label(c)} and play for stacks; flatting to trap is defensible, folding burns a monster.`;
+    return;
+  }
+  if(nearNut){
+    // Depth guard: deep enough that the small pairs set-mine profitably, QQ must not
+    // grade WORSE than 55 in the same spot — it has the same set-mine plus extra equity.
+    if(c.pair && setMineVerdict(ratio)==='call'){
+      R.best='call'; R.grades.call=G.C; R.grades.fold=G.D; R.grades.raise=G.M;
+      R.concept='set-mining';
+      R.why = `Deep behind (~${ratio.toFixed(0)}×), calling ${label(c)} is the play: you <span class="concept">set-mine</span> a nearly face-up premium just like the small pairs do, you flip against the AK end of their range, and you avoid 4-betting into the one line that tends to have you crushed. Folding is still defensible — a live <span class="concept">limp-reraise</span> tends to be AA/KK until this player shows you otherwise.`;
+      return;
+    }
+    R.best='fold'; R.grades.fold=G.C; R.grades.call=G.D; R.grades.raise=G.M;
+    R.why = `Respect the line: a live <span class="concept">limp-reraise</span> tends to be AA/KK until this player shows you otherwise, and ${label(c)} plays flip-or-crushed against that. Folding is the disciplined best; a call is defensible (${c.pair?`you can set-mine a face-up overpair`:`you keep the times they show up lighter`}), but 4-betting only feeds the top of their range.`;
+    return;
+  }
+  if(c.pair){
+    const v = setMineVerdict(ratio); R.grades.raise=G.M;
+    if(v==='call'){
+      R.best='call'; R.grades.call=G.C; R.grades.fold=G.D; R.concept='set-mining';
+      R.why = `The one non-premium continue. At ~${ratio.toFixed(0)}× behind, calling ${label(c)} to <span class="concept">set-mine</span> a nearly face-up premium is at its very best — when you spike a set, a hand that strong tends to pay your whole stack. Folding is fine if that feels thin.`;
+    } else if(v==='thin'){
+      R.best='fold'; R.grades.fold=G.C; R.grades.call=G.D;
+      R.why = `Marginal set-mine. ~${ratio.toFixed(0)}× behind sits near the break-even line (${smNeedShort}) — the payoff when you hit a set against a premium is great, but the price is real. Fold leans best; a call is defensible.`;
+    } else {
+      R.best='fold'; R.grades.fold=G.C; R.grades.call=G.M;
+      R.why = `Fold ${label(c)}. A live <span class="concept">limp-reraise</span> tends to be a big pair, and at only ~${ratio.toFixed(0)}× behind you can't even set-mine it profitably — calling is the leak the line is built to punish.`;
+    }
+    return;
+  }
+  R.best='fold'; R.grades.fold=G.C; R.grades.call=G.M; R.grades.raise=G.M;
+  R.why = `Fold — yes, even ${label(c)}. The rare <span class="concept">limp-reraise</span> tends to be a trap line reserved for premiums; without a premium of your own (or a pair deep enough to set-mine), continuing just pays off the most honest raise in live poker. Let your ${iso}bb go.`;
+}
+
+/* ---- limped pot: SMALL-BLIND completion discipline (RAKE-1) ----
+   The price always looks free from the SB; what tightens the marginal completes is the
+   capped drop eating small limped pots plus the worst seat at the table. Rake numbers
+   are room-specific estimates, so the copy hedges them. */
+function sbComplete(sc,c,t,offBway,R){
+  R.callLabel='Complete'; R.raiseLabel='Iso-raise';
+  const cost = 1 - S.sbbb;
+  const potBefore = sc.limpers + 1 + S.sbbb;
+  const need = cost/(potBefore+cost);
+  const multi = sc.limpers>=2;
+  R.math = `${sc.limpers} limper(s). Completing costs ${cost.toFixed(1)}bb (${$amt(cost)}) into ~${potBefore.toFixed(1)}bb → need ≈ ${(need*100).toFixed(0)}% equity.\nRake note: the capped drop takes its biggest share from small limped pots (room-specific estimate), so the real price is worse than it looks.`;
+
+  if(t<=2 || (t===3 && !offBway)){
+    R.grades.raise=G.C; R.grades.call=G.D; R.grades.fold = t<=2?G.M:G.D; R.best='raise';
+    R.concept='isolation';
+    R.why = `Raise it yourself. From the worst seat, completing ${label(c)} invites a capped crowd; an <span class="concept">iso-raise</span> takes the <span class="concept">initiative</span>, thins the field, and builds the pot your hand wants. Limped-pot players tend to play fit-or-fold against it.`;
+    return;
+  }
+  if(t===3 && offBway){
+    R.grades.raise=G.D; R.grades.call=G.D; R.grades.fold=G.D; R.best='raise'; R.concept='isolation';
+    R.why = `${label(c)} from the small blind over limpers: iso-raising, completing, and folding are all defensible. If you complete, plan on playing it honestly — offsuit broadways out of position win small and lose medium.`;
+    return;
+  }
+  if(t===4){
+    if(multi){
+      R.grades.call=G.C; R.grades.fold=G.D; R.grades.raise=G.D; R.best='call';
+      R.concept = c.cat==='small-pair' ? 'set-mining' : 'implied-odds';
+      R.why = `Complete ${label(c)} — multiway and nearly free, this passes the "would I over-limp this on the button?" test. ${c.cat==='small-pair'?`Cheap multiway <span class="concept">set-mining</span> is exactly what small pairs want.`:`The <span class="concept">implied odds</span> are intact with several players to pay you off.`} The drop still nibbles, but with this many limpers the pot is big enough to be worth contesting.`;
+      return;
+    }
+    R.best='fold'; R.grades.fold=G.C; R.grades.call=G.D; R.grades.raise=G.D;
+    R.concept='rake';
+    R.why = `Lean fold. ${label(c)} barely passes the button test, but with just one limper this is a small, nearly heads-up limped pot — the spot where the capped <span class="concept">rake</span> hurts most (room-specific, but the direction is reliable) and where you'll play the whole hand from the worst seat. Keep the half-bet; completing is defensible, not good.`;
+    return;
+  }
+  // t5
+  R.best='fold'; R.grades.fold=G.C; R.grades.call = c.suited?G.D:G.M; R.grades.raise=G.M;
+  R.concept = c.suited?'rake':'pot-odds';
+  R.why = `Fold ${label(c)} and keep the half-bet. ${c.suited?`Suited junk from the small blind fails the button test: out of position all hand, second-best when it hits, and the drop eats whatever tiny pots it wins (<span class="concept">rake</span> figures vary by room, but small limped pots are always hit hardest).`:`Offsuit junk has no draw, no <span class="concept">pot odds</span> story, and the worst seat at the table.`} The half-price discount is the trap.`;
+}
+
+/* ---- BB defense ---- */
+function bbdef(sc,c,t,offBway,R){
+  R.callLabel = sc.openBB>1 ? 'Call' : 'Check';
+  R.raiseLabel = '3-bet';
+  const bvb = sc.opener==='SB'; // blind-vs-blind: the one open the BB has POSITION against
+  const be = bbDefBE(sc.openBB, sc.callers, bvb);
+  R.math = `You're closing from the BB: call ${(sc.openBB-1).toFixed(0)}bb (${$amt(sc.openBB-1)}) into a ~${(sc.openBB + (bvb?0:S.sbbb) + 1 + sc.callers*sc.openBB).toFixed(1)}bb pot.\nBreak-even equity ≈ ${(be*100).toFixed(0)}%. ${sc.callers>0?`${sc.callers} caller(s) sweeten the price.`:``}${bvb?`\nBlind-vs-blind: you act LAST postflop — the only open you have position against.`:``}`;
+
+  if(t===1){
+    R.grades.raise=G.C; R.grades.call=G.D; R.grades.fold=G.M; R.best='raise'; R.concept='domination';
+    R.why = `${label(c)} is premium — 3-bet for value and build the pot while you <span class="concept">dominate</span>. Just calling is okay multiway, but folding is out of the question.`;
+    return;
+  }
+
+  const cheap = be<=BAND_CHEAP, medium = be<=BAND_MEDIUM;
+  const playable = !(!c.pair && !c.suited && c.gap>=3 && c.hi<=9); // defend wide unless very bottom
+  const decentT4 = (c.cat==='small-pair'||c.cat==='suited-connector');
+
+  // Batch 4 unification: strong-but-not-premium hands take the betting lead from the
+  // blind at ANY price — the blind 3-bet for value is the same doctrine as the value
+  // squeeze over dead money. Call stays defensible, never best (matches squeeze t2),
+  // so the same real spot no longer draws a different best action by generator.
+  if(t===2){
+    R.grades.raise=G.C; R.grades.call=G.D; R.grades.fold = c.cat==='big-pair'?G.M:G.D; R.best='raise';
+    R.concept = medium ? 'domination' : 'position';
+    R.why = medium
+      ? `${label(c)} is strong enough to 3-bet for value from the blind — the same move as a value <span class="concept">squeeze</span>: take the lead while you <span class="concept">dominate</span> most of what a wide open${sc.callers>0?` (and the callers' dead money)`:``} continues with, instead of flatting into a capped pot out of position.${bvb?` Blind-vs-blind it's even better — small blinds tend to open wide here, exactly what a value 3-bet farms.`:``} Calling the good price is fine; ${c.cat==='big-pair'?`folding a pair this big is a clear mistake`:`folding is too tight to be best`}.`
+      : `The open is large, so the price isn't cheap anymore — ${c.cat==='big-pair'
+        ? `but ${label(c)} is 3-bet-or-call, never a fold: the net price plus the set value means a big pair doesn't fold to one raise. Best is to take the lead yourself.`
+        : `with ${label(c)} prefer 3-bet-or-fold from the blind. ${bvb?`Even with position, flatting a raise this big leaves you guessing — take the betting lead instead.`:`Flatting out of position into a big bet is loose.`}`}`;
+    return;
+  }
+
+  if(cheap){
+    if(playable){
+      R.grades.call=G.C; R.grades.fold=G.D; R.grades.raise = t<=3?G.D:G.M; R.best='call';
+      R.concept='pot-odds';
+      R.why = `Great price, closing the action${sc.callers>0?` in a multiway pot`:``}: ${label(c)} is a clear <span class="concept">defend</span>. You only need ~${(be*100).toFixed(0)}% equity and you're getting it cheaply${bvb?` — and blind-vs-blind you'll even have <span class="concept">position</span> on the small blind`:``} — this is correct, <em>not</em> the leak. Over-folding good prices is its own mistake.`;
+    } else {
+      R.best='fold'; R.grades.fold=G.C; R.grades.call=G.D; R.concept='pot-odds';
+      R.why = `Even cheap, ${label(c)} is at the very bottom — folding is fine and a loose call is only marginally okay. Most other hands defend here, but this one whiffs the flop too often.`;
+    }
+    return;
+  }
+  if(medium){
+    // Blind-vs-blind, defend noticeably wider: small blinds tend to open wide and play
+    // passively after the flop, the population BB tends to over-fold here, and you're
+    // the one with position. (BvB-1 — coach-consensus tendency, hedged.)
+    // Suited arm is gated: high-card suited or connected suited with a live low card —
+    // wider is not "everything suited"; 72s/32s-class junk still folds at ~37% needed.
+    const bvbSuited = c.suited && (c.hi>=8 || (c.gap<=2 && c.lo>=2));
+    const bvbWide = bvb && playable && (be<=0.33 || t<=4 || bvbSuited || c.pair);
+    if(t<=3 || decentT4 || bvbWide){
+      R.grades.call=G.C; R.grades.fold=G.D;
+      // raise: a light 3-bet/squeeze with a real hand is defensible when there's dead
+      // money (callers) or BvB position behind it; heads-up OOP vs a non-blind opener
+      // it stays a mistake. (t2 returns above; aligned with the blind squeeze band.)
+      R.grades.raise = (bvb && (t<=4||bvbSuited)) || (sc.callers>0 && t<=3) ? G.D : G.M;
+      R.best='call';
+      R.concept = bvb ? 'position' : 'equity-realization';
+      R.why = bvb && !(t<=3 || decentT4)
+        ? `Blind-vs-blind this is a defend. Small blinds tend to raise wide here and most play the pot passively, while big blinds tend to over-fold — so with ~${(be*100).toFixed(0)}% needed and <span class="concept">position</span> for once, ${label(c)} continues. Folding hands like this is the over-fold the small blind is counting on. (A light 3-bet is also a fine lever against a wide, honest opener.)`
+        : `For a medium price, ${label(c)} defends — it flops well enough and you need ~${(be*100).toFixed(0)}% equity.${bvb?` Blind-vs-blind it's even clearer: the small blind's range tends to be wide and you have <span class="concept">position</span>.`:``} Folding is a touch tight; calling is correct here.`;
+    } else {
+      R.best='fold'; R.grades.fold=G.C; R.grades.call=G.D;
+      R.concept = c.suited?'reverse-implied-odds':'domination';
+      R.why = `At this price ${label(c)} leans fold — it's ${c.suited?`a speculative hand with capped <span class="concept">implied odds</span>`:`often <span class="concept">dominated</span>`}${bvb?`, and even with position blind-vs-blind the bottom of the deck whiffs too often`:` and you're out of position`}. A call is defensible but not ideal.`;
+    }
+    return;
+  }
+  // expensive = BB version of the leak (t2 already returned above — raise-first at any price)
+  if(t===3){
+    R.best='fold'; R.grades.fold=G.C;
+    if(c.cat==='mid-pair'){
+      // Price the call NET of the posted big blind: the same tuned set-mine bar the rest
+      // of the trainer uses, instead of a blanket mistake that contradicted it.
+      const r = smRatioSc(sc), v = setMineVerdict(r);
+      R.concept='set-mining'; R.grades.raise=G.M;
+      if(v==='call'){ R.best='call'; R.grades.call=G.C; R.grades.fold=G.D;
+        R.why=`Set-mine it. The open looks big, but your blind is already in the pot — the net call sits ~${r.toFixed(0)}× behind (${smNeedShort}) and you close the action. ${label(c)} calls profitably here.`;
+      } else if(v==='thin'){ R.grades.call=G.D;
+        R.why=`Marginal. Net of your blind you're ~${r.toFixed(0)}× behind — near the set-mine break-even (${smNeedShort}). Fold leans best; a call is defensible.`;
+      } else { R.grades.call=G.M;
+        R.why=`Big open: ${label(c)} folds. Even net of your blind you're only ~${r.toFixed(0)}× behind, and set-mining wants ~10–12× — calling is the leak.`;
+      }
+    } else if(offBway){R.grades.call=G.M; R.concept='domination';
+      R.why=`Big open from the blind with an offsuit broadway: fold. ${label(c)} is <span class="concept">dominated</span> and ${bvb?`a raise this large blind-vs-blind tends to be honest strength — most small blinds aren't bluffing big`:`plays badly out of position`} — calling here is the leak.`;
+    } else {R.grades.call=G.D; R.grades.raise=G.D; R.concept='reverse-implied-odds';
+      R.why=`Vs a big open, ${label(c)} leans fold${bvb?` even blind-vs-blind — when a typically-passive small blind sizes up, it tends to mean it`:` out of position — capped <span class="concept">implied odds</span> and you realize equity poorly`}. A call or a 3-bet bluff are the alternatives.`;
+    }
+    if(R.best==='fold') R.why += ` Remember: defend <em>wide</em> vs small opens, not vs this.`;
+    return;
+  }
+  // t4/t5 expensive — small pairs first: grade off the tuned bar at the NET price
+  if(c.cat==='small-pair'){
+    const r = smRatioSc(sc), v = setMineVerdict(r);
+    R.concept='set-mining'; R.grades.raise=G.M;
+    if(v==='call'){
+      R.best='call'; R.grades.call=G.C; R.grades.fold=G.D;
+      R.why = `Set-mine it. The headline open is big, but your posted blind discounts the call: ~${r.toFixed(0)}× behind the net price (${smNeedShort}), closing the action. ${label(c)} is a profitable call — the same ratio the trainer rewards everywhere else.`;
+    } else if(v==='thin'){
+      R.best='fold'; R.grades.fold=G.C; R.grades.call=G.D;
+      R.why = `Marginal. ~${r.toFixed(0)}× behind the net call sits near the set-mine line (${smNeedShort}). Fold leans best${bvb?``:` from out of position`}; a call is defensible.`;
+    } else {
+      R.best='fold'; R.grades.fold=G.C; R.grades.call=G.M;
+      R.why = `${bvb?`Big blind-vs-blind raise`:`Big open, out of position`}, ${label(c)}: fold. Even net of your blind, ~${r.toFixed(0)}× behind is below what set-mining pays (${smNeedShort})${bvb?` — and a small blind sizing up this much tends to be honest`:``}. This big-open call is the leak.`;
+    }
+    return;
+  }
+  // remaining t4/t5 expensive
+  R.best='fold'; R.grades.fold=G.C; R.grades.call=G.M;
+  R.grades.raise = (c.cat==='weak-suited-ace') ? G.D : G.M;
+  R.concept = c.suited?'reverse-implied-odds':'pot-odds';
+  R.why = `${bvb?`Big blind-vs-blind raise`:`Big open, out of position`}, ${label(c)}: fold. You need ~${(be*100).toFixed(0)}% equity you don't have, and the cap kills the <span class="concept">implied-odds</span> payoff.${bvb?` A small blind sizing up this much tends to be honest.`:``} Wide BB defense is right vs <em>small</em> opens — this big-open call is the leak.`;
+}
+
+/* helper for hand label in prose */
+function label(c){
+  const f = c.n;
+  return `<b style="font-family:var(--serif)">${pretty(f)}</b>`;
+}
+function pretty(n){
+  if(n.length===2) return n;
+  return n.slice(0,2) + (n[2]==='s'?'s':'o');
+}
+function $amt(bb){ return '$'+Math.round(bb*S.bb); }
+
+function mathVsOpen(sc, ratio, ip, c){
+  const posted = postedBlind(sc.hero);
+  const call = sc.openBB - posted;
+  const need = beVsOpen(sc.openBB, sc.hero);
+  let s = `Heads-up vs a ${sc.openBB.toFixed(1)}bb open (${$amt(sc.openBB)}): you call ${call.toFixed(1)}bb into ~${(sc.openBB+S.sbbb+1).toFixed(1)}bb → need ≈ ${(need*100).toFixed(0)}% equity to continue.`;
+  if(posted>0) s += `\nYour posted ${posted.toFixed(1)}bb blind is already in that pot — the real price is the difference.`;
+  s += `\nPosition: ${ip?'in position (you act last)':'out of position'}.`;
+  if(c.pair) s += `\nSet-mine ratio ≈ ${ratio.toFixed(0)}× (want ~10–12× in a loose game; textbook 15×; ${(S.cap-sc.openBB).toFixed(0)}bb behind a ${call.toFixed(1)}bb call).`;
+  return s;
+}
+
+/* ================================================================
+   SCENARIO GENERATION
+   ================================================================ */
+const TEMPTING = [ // speculative / dominated hands that LOOK playable
+  '22','33','44','55','66','77',
+  '54s','65s','76s','87s','98s','T9s','89s','97s','86s','75s','64s','53s','J9s','Q9s','T8s','48s','J8s','T7s',
+  'A2s','A3s','A4s','A5s','A6s','A7s','A8s','A9s',
+  'KJs','KTs','QJs','QTs','JTs','K9s','Q8s',
+  'AJo','ATo','KQo','KJo','QJo','KTo','JTo','A9o'
+];
+const PREMIUMISH = ['AA','KK','QQ','JJ','TT','AKs','AKo','AQs','AQo','AJs','KQs'];
+const TRASHY = ['72o','83o','94o','T2o','J3o','Q4o','K2o','95o','62o','73o','84o','T4o','J2o','52o'];
+
+function randHand(){
+  const a = Math.floor(Math.random()*13), b = Math.floor(Math.random()*13);
+  if(a===b) return RANKS[a]+RANKS[a];
+  const hi=Math.max(a,b), lo=Math.min(a,b);
+  const suited = Math.random()<0.5;
+  return RANKS[hi]+RANKS[lo]+(suited?'s':'o');
+}
+function pick(arr){ return arr[Math.floor(Math.random()*arr.length)]; }
+
+function chooseHand(focus){
+  const r = Math.random();
+  if(focus){ return r<0.78 ? pick(TEMPTING) : (r<0.9 ? randHand() : pick(PREMIUMISH)); }
+  if(r<0.16) return pick(PREMIUMISH);
+  if(r<0.50) return pick(TEMPTING);
+  if(r<0.66) return pick(TRASHY);
+  return randHand();
+}
+
+function openSize(){
+  // returns bb. Range + bias set by the open-size distribution setting.
+  const tables = {
+    // full live spread 3–12bb (default), mild bias toward common live sizes
+    wide:  [{v:3,w:1.4},{v:4,w:1.6},{v:5,w:2},{v:6,w:2},{v:7.5,w:1.8},{v:8,w:1.8},{v:10,w:1.6},{v:12,w:1.2}],
+    // small opens 3–7bb — the set-mine / speculative-call practice range
+    small: [{v:3,w:2},{v:4,w:2.4},{v:5,w:2.6},{v:6,w:2},{v:7,w:1.6}],
+    // big opens 8–12bb — the fold-the-traps leak-drilling range
+    big:   [{v:8,w:2.4},{v:9,w:1.6},{v:10,w:2.6},{v:11,w:1.4},{v:12,w:2}],
+  };
+  const sizes = tables[S.opens] || tables.wide;
+  let total=sizes.reduce((s,x)=>s+x.w,0), r=Math.random()*total;
+  for(const x of sizes){ if((r-=x.w)<=0) return x.v; }
+  return sizes[sizes.length-1].v;
+}
+
+function seatsBefore(hero){ // positions that could have opened/limped before hero (preflop)
+  const i = POS.indexOf(hero);
+  return POS.slice(0,i);
+}
+
+function makeScenario(){
+  const focus = state.focus;
+  // weighted scenario type
+  const base = focus
+    ? [['vsopen',0.5],['squeeze',0.18],['bbdef',0.16],['limped',0.08],['rfi',0.08]]
+    : [['vsopen',0.45],['bbdef',0.20],['squeeze',0.12],['limped',0.11],['rfi',0.12]];
+  function pickType(){ let r=Math.random(); for(const [k,w] of base){ if((r-=w)<=0) return k; } return 'vsopen'; }
+
+  const diff = state.diff;
+  let tries=0, chosen=null;
+  while(tries++<46){
+    const type = pickType();
+    const sc = buildOne(type, focus);
+    if(!sc) continue;
+    sc.cls = classify(sc.hand);
+    sc.rule = ruling(sc);
+    if(acceptDiff(sc, diff)) { chosen = sc; break; }
+    if(tries>=46) { chosen = sc; }
+  }
+  // make concrete cards for display
+  chosen.cards = notationToCards(chosen.hand);
+  return chosen;
+}
+
+function buildOne(type, focus){
+  const hand = chooseHand(focus);
+  if(type==='rfi'){
+    const hero = pick(['UTG','UTG+1','LJ','HJ','CO','BTN','SB']);
+    return {hand, type, hero, openBB:0, opener:null, callers:0, limpers:0};
+  }
+  if(type==='vsopen'){
+    // hero faces a single open from an earlier position (or hero in the SB vs an earlier opener).
+    // BB is deliberately NOT in this pool: every BB-facing-an-open deal belongs to type 'bbdef',
+    // whose grading prices the discounted call — keeping one consistent verdict per real spot.
+    const heroPool = ['UTG+1','LJ','HJ','CO','BTN','SB'];
+    const hero = pick(heroPool);
+    const before = seatsBefore(hero);
+    if(before.length===0) return null;
+    const opener = pick(before);
+    return {hand, type, hero, opener, openBB: openSize(), callers:0, limpers:0};
+  }
+  if(type==='squeeze'){
+    const hero = pick(['HJ','CO','BTN','SB','BB']);
+    const before = seatsBefore(hero);
+    if(before.length<2) return null;
+    const opener = before[Math.floor(Math.random()*Math.max(1,before.length-1))];
+    const callers = 1 + (Math.random()<0.35?1:0);
+    return {hand, type, hero, opener, openBB: openSize(), callers, limpers:0};
+  }
+  if(type==='limped'){
+    // ~1 in 5 limped spots: hero already iso-raised and now faces a LIMP-RERAISE (LIM-3).
+    if(Math.random()<0.20){
+      const hero = pick(['HJ','CO','BTN']);            // in-position iso seats; blinds keep pots clean
+      const before = seatsBefore(hero);
+      const limpers = Math.min(before.length, 1 + (Math.random()<0.5?1:0));
+      const iso = 4 + limpers;
+      const rr = Math.round(iso * pick([2.8,3.2,3.6])); // live limp-reraises come in big
+      const lrPos = before.slice(Math.max(0,before.length-limpers))[0];
+      return {hand, type, hero, opener:null, openBB:1, callers:0, limpers, lr:{pos:lrPos, iso, rr}};
+    }
+    const hero = pick(['HJ','CO','BTN','SB','BB']);
+    const before = seatsBefore(hero);
+    if(before.length===0) return null;
+    const limpers = 1 + (Math.random()<0.5?1:0) + (Math.random()<0.25?1:0);
+    return {hand, type, hero, opener:null, openBB:1, callers:0, limpers};
+  }
+  if(type==='bbdef'){
+    const hero='BB';
+    const before = ['UTG','UTG+1','LJ','HJ','CO','BTN','SB'];
+    const opener = pick(before);
+    if(opener==='SB'){
+      // blind-vs-blind: no seats left to call behind, and live SB raises skew smaller
+      const openBB = S.opens==='big' ? openSize() : pick([2.5,3,3,3.5,4,5,6]);
+      return {hand, type, hero, opener, openBB, callers:0, limpers:0};
+    }
+    // sometimes small open + callers (the cheap multiway reward case) — but not when the
+    // user has explicitly chosen the big-opens range
+    const small = S.opens!=='big' && Math.random()<0.45;
+    const openBB = small ? pick([2.5,3,4,5]) : openSize();
+    let callers = (small && Math.random()<0.65) ? (1+(Math.random()<0.5?1:0)) : (Math.random()<0.25?1:0);
+    // never more callers than there are seats between the opener and the BB
+    callers = Math.min(callers, before.length - 1 - before.indexOf(opener));
+    return {hand, type, hero, opener, openBB, callers, limpers:0};
+  }
+  return null;
+}
+
+function acceptDiff(sc, diff){
+  if(diff==='mixed') return true;
+  const g = sc.rule.grades;
+  const vals = [g.fold,g.call,g.raise];
+  const best = sc.rule.best;
+  const hasD = vals.includes(G.D);
+  const ratio = smRatioSc(sc);
+  if(diff==='easy'){
+    // clear spots: premium raise / pure trash fold / cheap clear defend / leak where call is a MISTAKE
+    if(best==='raise' && g.fold===G.M) return true;
+    if(best==='fold' && g.call===G.M && !hasBorderline(sc)) return true;
+    if(sc.type==='bbdef' && g.call===G.C && g.raise===G.M) return true;
+    return false;
+  }
+  if(diff==='hard'){
+    // borderline: a non-best DEFENSIBLE alternative exists, or marginal set-mine, or T3 OOP medium
+    if(hasD && (g[best]!==G.M)) {
+      // ensure at least one defensible that's not the best action
+      let extra=0; for(const k of ['fold','call','raise']) if(k!==best && g[k]===G.D) extra++;
+      if(extra>=1) return true;
+    }
+    if(ratio>=12 && ratio<=16 && sc.cls && (sc.cls.cat==='small-pair'||sc.cls.cat==='mid-pair')) return true;
+    if(sc.type==='vsopen' && sc.cls && sc.cls.tier===3 && !ipVsOpener(sc.hero,sc.opener) && openCat(sc.openBB)==='medium') return true;
+    return false;
+  }
+  return true;
+}
+function hasBorderline(sc){
+  const r=smRatioSc(sc);
+  return (r>=12 && r<=16);
+}
+
+function notationToCards(n){
+  const p = parseHand(n);
+  let s1, s2;
+  if(p.pair){ const i=Math.floor(Math.random()*4); let j; do{j=Math.floor(Math.random()*4);}while(j===i); s1=SUITS[i]; s2=SUITS[j]; }
+  else if(p.suited){ const i=Math.floor(Math.random()*4); s1=SUITS[i]; s2=SUITS[i]; }
+  else { const i=Math.floor(Math.random()*4); let j; do{j=Math.floor(Math.random()*4);}while(j===i); s1=SUITS[i]; s2=SUITS[j]; }
+  return [{r:RANKS[p.hi],suit:s1},{r:RANKS[p.lo],suit:s2}];
+}
+
+/* ================================================================
+   STATE & STATS
+   ================================================================ */
+const state = {
+  focus:false, diff:'mixed',
+  score:0, streak:0, best:0,
+  leakTests:0, leakPass:0, overFolds:0, antiTests:0,
+  recentLeaks:[], // booleans
+  cats:{ 'RFI':{c:0,t:0}, 'vs Open':{c:0,t:0}, 'Multiway':{c:0,t:0}, 'Limped':{c:0,t:0}, 'BB Defense':{c:0,t:0} },
+  sc:null, answered:false, pendingRaiseSize:null, pendingRaiseLabel:null, sizeTipText:''
+};
+const PTS = {CORRECT:10, DEFENSIBLE:5, MISTAKE:0};
+const catOf = t => t==='rfi'?'RFI':t==='vsopen'?'vs Open':t==='squeeze'?'Multiway':t==='limped'?'Limped':'BB Defense';
+
+/* ================================================================
+   LIFETIME STATS — persisted by the PARENT app via the ptFrame bridge.
+   The trainer itself stays storage-free: it posts throttled {type:'ptStats'}
+   snapshots; the parent stores them (localStorage pokerPreflopTrainer_v1)
+   and answers our {type:'ptReady'} with {type:'ptRestore', data}.
+   ================================================================ */
+const lifetime = {
+  answered:0, score:0, bestStreak:0,
+  leakTests:0, leakPass:0, overFolds:0, antiTests:0,
+  cats:{ 'RFI':{c:0,t:0}, 'vs Open':{c:0,t:0}, 'Multiway':{c:0,t:0}, 'Limped':{c:0,t:0}, 'BB Defense':{c:0,t:0} },
+  settings:{ sb:S.sb, bb:S.bb, sbbb:S.sbbb, cap:S.cap, opens:S.opens, focus:false, diff:'mixed' },
+  updatedTs:0
+};
+const ptNum=(v,lo,hi,d)=>{ v=Number(v); return (isFinite(v)&&v>=lo&&v<=hi)? v : d; };
+function ptApplyControls(){
+  const st=document.getElementById('setStakes');
+  for(const o of st.options){ const p=o.value.split(',').map(Number); if(p[0]===S.sb&&p[1]===S.bb){ st.value=o.value; break; } }
+  document.getElementById('setCap').value=String(S.cap);
+  const op=document.getElementById('setOpens'); if([...op.options].some(o=>o.value===S.opens)) op.value=S.opens;
+  const sd=document.getElementById('selDiff'); if([...sd.options].some(o=>o.value===state.diff)) sd.value=state.diff;
+  document.getElementById('btnFocus').setAttribute('aria-pressed', state.focus?'true':'false');
+  document.getElementById('brandSub').textContent='Live $'+S.sb+'/$'+S.bb+' \u00b7 '+S.cap+'bb cap \u00b7 big opens';
+}
+// Defensive restore: type-check every field, clamp numbers, ignore unknown shapes.
+function ptMergeRestore(d){
+  if(!d || typeof d!=='object') return;
+  lifetime.answered  = ptNum(d.answered, 0, 1e7, 0);
+  lifetime.score     = ptNum(d.score, 0, 1e9, 0);
+  lifetime.bestStreak= ptNum(d.bestStreak, 0, 1e6, 0);
+  lifetime.leakTests = ptNum(d.leakTests, 0, 1e7, 0);
+  lifetime.leakPass  = ptNum(d.leakPass, 0, lifetime.leakTests, 0);
+  lifetime.overFolds = ptNum(d.overFolds, 0, 1e7, 0);
+  lifetime.antiTests = ptNum(d.antiTests, 0, 1e7, 0);
+  if(d.cats && typeof d.cats==='object'){
+    for(const k in lifetime.cats){
+      const o=d.cats[k];
+      if(o && typeof o==='object'){ lifetime.cats[k].t=ptNum(o.t,0,1e7,0); lifetime.cats[k].c=ptNum(o.c,0,lifetime.cats[k].t,0); }
+    }
+  }
+  lifetime.updatedTs = ptNum(d.updatedTs, 0, 9e15, 0);
+  const st=d.settings;
+  if(st && typeof st==='object'){
+    S.sb  = ptNum(st.sb, 0.05, 1000, S.sb);
+    S.bb  = ptNum(st.bb, 0.1, 2000, S.bb);
+    S.sbbb= ptNum(st.sbbb, 0.05, 1, S.sbbb);
+    S.cap = ptNum(st.cap, 20, 1000, S.cap);
+    if(typeof st.opens==='string' && ['wide','small','big'].indexOf(st.opens)>=0) S.opens=st.opens;
+    if(typeof st.diff==='string') state.diff=st.diff;
+    if(typeof st.focus==='boolean') state.focus=st.focus;
+    ptApplyControls();   // settings hit S + the controls; an in-flight hand finishes as dealt
+  }
+  lifetime.settings={ sb:S.sb, bb:S.bb, sbbb:S.sbbb, cap:S.cap, opens:S.opens, focus:state.focus, diff:state.diff };
+  updateHUD();
+}
+let _ptStatsLast=0, _ptStatsTimer=0;
+function ptPostStats(){            // throttled to <=1/sec
+  lifetime.settings={ sb:S.sb, bb:S.bb, sbbb:S.sbbb, cap:S.cap, opens:S.opens, focus:state.focus, diff:state.diff };
+  const fire=()=>{ _ptStatsLast=Date.now(); lifetime.updatedTs=_ptStatsLast;
+    try{ parent.postMessage({ type:'ptStats', data:JSON.parse(JSON.stringify(lifetime)) }, '*'); }catch(e){} };
+  const dt=Date.now()-_ptStatsLast;
+  if(dt>=1000) fire();
+  else if(!_ptStatsTimer){ _ptStatsTimer=setTimeout(()=>{ _ptStatsTimer=0; fire(); }, 1000-dt); }
+}
+
+/* ================================================================
+   GLOSSARY (definitions + analogies), with first-use tracking
+   ================================================================ */
+const TERMS = {
+  'implied-odds':{name:'Implied odds',def:'The extra money you expect to win on later streets the times your speculative hand hits a big flop — not just the chips in the pot right now.',an:'Like the ROI on a lottery ticket: worth buying only if the jackpot is big enough. The 100bb cap puts a hard ceiling on that jackpot, so many "lottery" hands stop being worth the ticket.'},
+  'reverse-implied-odds':{name:'Reverse implied odds',def:'The money you expect to LOSE when you make a hand that looks good but is second-best.',an:'Like closing a deal and only then discovering you are underwater — your flush is real, but it loses to a higher flush, and you pay it off.'},
+  'pot-odds':{name:'Pot odds / break-even equity',def:'The price you are getting: the chips you must call versus the size of the pot. It tells you the minimum win-rate (equity) a call needs to break even.',an:'Like a bet payout: if you risk $1 to win $4, you only need to be right one time in five.'},
+  'equity-realization':{name:'Equity realization',def:'How much of your hand\'s raw winning chance you actually convert into profit, after position, future bets, and being bluffed off hands.',an:'Like gross revenue versus net profit: two hands can have the same "revenue" (equity), but out of position you keep far less of it.'},
+  'position':{name:'Position',def:'Acting after your opponent on every street, so you always have more information when you decide.',an:'Like going last in a negotiation — you hear every offer before you have to commit.'},
+  'set-mining':{name:'Set-mining',def:'Calling a raise with a small pocket pair purely hoping to flop three of a kind (a "set").',an:'A lottery ticket that only pays when you hit (~1 in 8.5). To be worth it you need a big stack behind to win — about 10–12× your call in a loose game (15× by the book). The 100bb cap shrinks that jackpot, so big opens fail the test no matter how loose the table.'},
+  'domination':{name:'Domination',def:'Holding a hand that shares a card with a stronger version, so you are crushed when money goes in.',an:'Same knife, but everyone else\'s is sharper: A8 vs AK makes top pair with a losing kicker.'},
+  'initiative':{name:'Initiative',def:'Being the aggressor — the player who raised — so you can keep betting and win pots even when you miss.',an:'Like setting the agenda in a meeting: the one driving controls where it goes.'},
+  'isolation':{name:'Isolation (iso-raise)',def:'Raising over limpers to thin the field and play heads-up against one weak player.',an:'Limping opens the door to a crowd; iso-raising picks one opponent and grabs the wheel.'},
+  'squeeze':{name:'Squeeze',def:'Re-raising after one player opens and others call, using the "dead money" already in the pot and your tight image.',an:'Two doors are already cracked open with cash behind them; you slam through and take the room — or build a huge pot when you actually have it.'},
+  'limp-reraise':{name:'Limp-reraise',def:'A player limps in, waits for someone to raise, then springs a big re-raise. From most live low-stakes players this line tends to be reserved for premium pairs — it is a trap, not a bluff.',an:'The quiet guy at the table suddenly slams a stack of chips down — believe him. Treat it as aces or kings until that specific player proves otherwise.'},
+  'rake':{name:'Rake (the drop)',def:'The fee the cardroom takes from each pot. At low stakes it is capped, so it eats a far bigger share of small pots than big ones — which quietly turns marginal small-pot entries into losers. Exact structures vary by room, so treat rake figures as estimates.',an:'A flat toll on every pot: trivial on a big haul, brutal on a tiny one. The smallest limped pots are barely worth winning after the toll booth.'}
+};
+const defined = new Set();
+
+function renderGlossary(){
+  const dl = document.getElementById('glossList');
+  dl.innerHTML='';
+  for(const k in TERMS){
+    const t=TERMS[k];
+    const dt=document.createElement('dt'); dt.textContent=t.name; dl.appendChild(dt);
+    const dd=document.createElement('dd'); dd.textContent=t.def; dl.appendChild(dd);
+    const an=document.createElement('dd'); an.className='an'; an.textContent='— '+t.an; dl.appendChild(an);
+  }
+}
+
+/* ================================================================
+   RENDERING
+   ================================================================ */
+function layoutSeats(sc){
+  const order = POS;
+  const heroIdx = order.indexOf(sc.hero);
+  const n = order.length;
+  // place seats around ellipse; hero at bottom center (angle 90deg)
+  const seatsEl = document.getElementById('seats');
+  seatsEl.innerHTML='';
+  for(let k=0;k<n;k++){
+    const posName = order[(heroIdx + k) % n]; // start from hero
+    // angle: hero at bottom (90deg), going clockwise
+    const ang = 90 + (k * 360/n);
+    const rad = ang*Math.PI/180;
+    const cx=50, cy=50, rx=44, ry=40;
+    const x = cx + rx*Math.cos(rad);
+    const y = cy + ry*Math.sin(rad);
+    const isHero = posName===sc.hero;
+    const el=document.createElement('div');
+    el.className='seat'+(isHero?' hero':'')+(posName==='BTN'?' btn-seat':'');
+    el.style.left=x+'%';
+    // Hero sits a touch higher than the pure-ellipse bottom so the tall hole
+    // cards (rendered above the label) rest on the felt instead of the rail.
+    el.style.top=(isHero?84:y)+'%';
+
+    let actHTML='';
+    let dim=false;
+    if(isHero){
+      el.classList.add('hero');
+      if(sc.lr) actHTML = `<div class="act open">You raised to ${sc.lr.iso}bb</div>`;
+    } else if(sc.lr && posName===sc.lr.pos){
+      el.classList.add('opener');
+      actHTML = `<div class="act open">Limp-reraises ${sc.lr.rr}bb · ${$amt(sc.lr.rr)}</div>`;
+    } else if(sc.opener===posName){
+      el.classList.add('opener');
+      actHTML = `<div class="act open">Raises ${sc.openBB.toFixed(1)}bb · ${$amt(sc.openBB)}</div>`;
+    } else if(sc.type==='squeeze' && isCaller(sc,posName)){
+      actHTML = `<div class="act call">Calls</div>`;
+    } else if(sc.type==='bbdef' && isCaller(sc,posName)){
+      actHTML = `<div class="act call">Calls</div>`;
+    } else if(sc.type==='limped' && isLimper(sc,posName)){
+      actHTML = `<div class="act limp">Limps</div>`;
+      if(sc.lr) dim=true; // limp-folded once the re-raise came in
+    } else {
+      // folded (before hero) or yet-to-act (after hero) — dim those who folded
+      // (in a limp-reraise spot everyone but hero and the re-raiser is out)
+      if(actedBefore(sc,posName) || sc.lr) dim=true;
+    }
+    if(dim) el.classList.add('dim');
+
+    el.innerHTML = isHero
+      ? heroHand(sc) + `<div class="who">${posName}</div>` + actHTML
+      : `<div class="who">${posName}</div>${actHTML}`;
+    seatsEl.appendChild(el);
+  }
+}
+function heroHand(sc){
+  const c=sc.cards;
+  return `<div class="hand">${cardHTML(c[0],'')}${cardHTML(c[1],'c2')}</div>`;
+}
+function cardHTML(card, cls){
+  const red = card.suit.r;
+  return `<div class="card ${cls} ${red?'red':''}">
+    <div class="tr">${card.r}<span class="pipR">${card.suit.s}</span></div>
+    <div class="mid">${card.suit.s}</div>
+    <div class="br">${card.r}<span class="pipR">${card.suit.s}</span></div>
+  </div>`;
+}
+function isCaller(sc,pos){
+  // callers are the seats between opener and hero (excluding opener) for squeeze; for bbdef, seats after opener before BB
+  if(sc.callers<=0) return false;
+  const before = seatsBefore(sc.hero);
+  const oi = before.indexOf(sc.opener);
+  const pool = before.slice(oi+1); // seats acting after opener, before hero
+  const callers = pool.slice(Math.max(0,pool.length-sc.callers));
+  return callers.includes(pos);
+}
+function isLimper(sc,pos){
+  const before = seatsBefore(sc.hero);
+  const limpers = before.slice(Math.max(0,before.length-sc.limpers));
+  return limpers.includes(pos);
+}
+function actedBefore(sc,pos){
+  // anyone strictly before hero who isn't opener/caller/limper has folded
+  const before = seatsBefore(sc.hero);
+  if(!before.includes(pos)) return false; // acts after hero -> not folded
+  if(sc.opener===pos) return false;
+  if((sc.type==='squeeze'||sc.type==='bbdef') && isCaller(sc,pos)) return false;
+  if(sc.type==='limped' && isLimper(sc,pos)) return false;
+  return true;
+}
+
+function renderScenario(sc){
+  layoutSeats(sc);
+  // center pot
+  let pot = S.sbbb + 1; // sb + bb
+  if(sc.opener) pot += sc.openBB;
+  pot += sc.callers*sc.openBB;
+  pot += sc.limpers*1;
+  if(sc.type==='rfi') pot = S.sbbb + 1;
+  // limp-reraise: other limpers' 1bb each + hero's iso + re-raiser's full amount
+  if(sc.lr) pot = S.sbbb + 1 + (sc.limpers-1) + sc.lr.iso + sc.lr.rr;
+  document.getElementById('potLine').textContent = `Pot ${pot.toFixed(1)}bb · ${$amt(pot)}`;
+  document.getElementById('blindLine').textContent =
+    `Blinds ${$amt(S.sbbb)} / ${$amt(1)} · ~${S.cap}bb effective`;
+
+  // action button labels per scenario type
+  const R = sc.rule;
+  setLabels(R);
+  // reset UI
+  enableActions(true);
+  document.getElementById('sizing').classList.remove('show');
+  document.getElementById('aRaise').classList.remove('sel');
+  document.getElementById('feedback').classList.remove('show');
+  const fbSizeEl=document.getElementById('fbSize'); if(fbSizeEl) fbSizeEl.style.display='none';
+  state.answered=false; state.pendingRaiseSize=null; state.pendingRaiseLabel=null; state.sizeTipText='';
+}
+
+function setLabels(R){
+  document.getElementById('lblCall').textContent = subFor(R.callLabel);
+  document.getElementById('lblRaise').textContent = subFor(R.raiseLabel);
+  document.querySelector('#aCall').childNodes[0].nodeValue = R.callLabel;
+  document.querySelector('#aRaise').childNodes[0].nodeValue = R.raiseLabel;
+  document.getElementById('lblFold').textContent = 'give it up';
+  document.querySelector('#aFold').childNodes[0].nodeValue = 'Fold';
+}
+function subFor(lbl){
+  switch(lbl){
+    case 'Check': return 'take a free flop';
+    case 'Limp': return 'just call the BB';
+    case 'Over-limp': return 'call behind limpers';
+    case 'Complete': return 'call the half-bet';
+    case '4-bet': return 're-raise them back';
+    case 'Open': return 'raise first in';
+    case '3-bet': return 're-raise the open';
+    case 'Squeeze': return 're-raise the field';
+    case 'Iso-raise': return 'raise to isolate';
+    case 'Call': return 'flat the bet';
+    default: return '';
+  }
+}
+
+/* ================================================================
+   HUD UPDATES
+   ================================================================ */
+function updateHUD(){
+  document.getElementById('hScore').textContent = state.score;
+  document.getElementById('hStreak').textContent = state.streak;
+  const disc = state.leakTests>0 ? Math.round(100*state.leakPass/state.leakTests) : null;
+  document.getElementById('hDisc').textContent = disc===null?'—':disc+'%';
+  document.getElementById('hDiscBar').style.width = (disc===null?0:disc)+'%';
+  // pips (last 12 leak tests)
+  const pipBox=document.getElementById('hPips'); pipBox.innerHTML='';
+  const recent = state.recentLeaks.slice(-12);
+  for(const ok of recent){ const d=document.createElement('span'); d.className='pip '+(ok?'ok':'bad'); pipBox.appendChild(d); }
+  for(let i=recent.length;i<12;i++){ const d=document.createElement('span'); d.className='pip'; pipBox.appendChild(d); }
+  // lifetime line (persisted across sessions by the main app)
+  const lf=document.getElementById('hLifetime');
+  if(lifetime.answered>0){
+    const ld = lifetime.leakTests>0 ? Math.round(100*lifetime.leakPass/lifetime.leakTests) : null;
+    lf.hidden=false;
+    lf.innerHTML=`Lifetime: <b>${lifetime.answered}</b> answered · discipline <b>${ld===null?'—':ld+'%'}</b> · best streak <b>${lifetime.bestStreak}</b>${lifetime.overFolds>0?` · over-folds <b>${lifetime.overFolds}</b>`:''}`;
+  } else { lf.hidden=true; }
+  // categories
+  const cw=document.getElementById('cats'); cw.innerHTML='';
+  for(const k in state.cats){
+    const o=state.cats[k];
+    const acc = o.t>0 ? Math.round(100*o.c/o.t) : null;
+    const lo=lifetime.cats[k];
+    const lacc = lo && lo.t>0 ? Math.round(100*lo.c/lo.t) : null;
+    const el=document.createElement('div'); el.className='cat';
+    el.innerHTML=`<div class="nm">${k}</div><div class="vl">${acc===null?'—':acc+'%'}</div>
+      <div class="mini"><i style="width:${acc===null?0:acc}%"></i></div>${lacc===null?'':`<div class="lt">life ${lacc}%</div>`}`;
+    cw.appendChild(el);
+  }
+}
+
+/* ================================================================
+   ANSWER HANDLING
+   ================================================================ */
+function choose(action){ // 'fold' | 'call' | 'raise'
+  if(state.answered) return;
+  const sc=state.sc, R=sc.rule;
+  if(action==='raise'){
+    // Two-tap: open the sizing panel and wait. Picking a size commits the raise.
+    // Fold/Call stay live so you can still change your mind before committing.
+    showSizing(sc,R);
+    document.getElementById('aRaise').classList.add('sel');
+    return; // do NOT grade yet — a size button calls grade('raise')
+  }
+  grade(action);
+}
+
+function showSizing(sc,R){
+  const box=document.getElementById('sizing');
+  const row=document.getElementById('sizeRow');
+  const tip=document.getElementById('sizeTip');
+  row.innerHTML='';
+  let opts=[], tipText='';
+  const o=sc.openBB;
+  if(sc.type==='rfi'){
+    opts=[ ['2.5bb',2.5],['3bb',3],['4bb',4] ];
+    tipText='Live games call wide — a slightly bigger open (3–4bb) charges the limpers and thins the field. A min-raise gets called by everyone.';
+  } else if(sc.type==='vsopen' || sc.type==='bbdef'){
+    const ip = sc.type==='vsopen' && ipVsOpener(sc.hero,sc.opener);
+    const a = ip? Math.round(o*3) : Math.round(o*4);
+    opts=[ [a+'bb (3×)',a], [Math.round(o*3.5)+'bb',Math.round(o*3.5)], [(Math.round(o*5))+'bb (big)',Math.round(o*5)] ];
+    tipText = ip? '3-bet to about 3× the open when in position.' : 'Out of position, size up to ~4× the open so you are not giving a great price.';
+  } else if(sc.type==='squeeze'){
+    const a = Math.round(o*4 + sc.callers*o);
+    opts=[ [a+'bb',a], [Math.round(o*3+sc.callers*o)+'bb',Math.round(o*3+sc.callers*o)], [Math.round(o*5+sc.callers*o)+'bb',Math.round(o*5+sc.callers*o)] ];
+    tipText='Squeeze bigger with callers in: ~4× the open plus one open-size per caller.';
+  } else if(sc.type==='limped'){
+    if(sc.lr){
+      const r = sc.lr.rr;
+      opts=[ [Math.round(r*2.3)+'bb',Math.round(r*2.3)], [Math.round(r*2.7)+'bb',Math.round(r*2.7)], [S.cap+'bb (all-in)',S.cap] ];
+      tipText='4-bet here only with a premium — ~2.3–2.7× their raise, or simply move in: a limp-reraiser\'s range is narrow and rarely folds.';
+    } else {
+      const a = 3 + sc.limpers;
+      opts=[ [a+'bb',a],[(a+1)+'bb',a+1],[(a+2)+'bb (big)',a+2] ];
+      tipText='Iso-raise to about pot — roughly 3–4bb plus 1bb per limper — to play heads-up.';
+    }
+  }
+  for(const [lab,val] of opts){
+    const b=document.createElement('button'); b.className='size-btn'; b.textContent=lab;
+    b.onclick=()=>{
+      state.pendingRaiseSize=val;
+      state.pendingRaiseLabel=lab;
+      document.querySelectorAll('.size-btn').forEach(x=>x.classList.remove('sel'));
+      b.classList.add('sel');
+      grade('raise'); // committing the raise locks the grade
+    };
+    row.appendChild(b);
+  }
+  document.getElementById('sizeLab').textContent='Pick a size to confirm your raise';
+  state.sizeTipText=tipText;
+  tip.textContent=tipText;
+  box.classList.add('show');
+}
+
+function grade(action){
+  state.answered=true;
+  enableActions(false);
+  document.getElementById('sizing').classList.remove('show');
+  document.getElementById('aRaise').classList.remove('sel');
+  const sc=state.sc, R=sc.rule;
+  const verdict = R.grades[action]; // CORRECT/DEFENSIBLE/MISTAKE
+  // scoring
+  state.score += PTS[verdict];
+  lifetime.answered++; lifetime.score += PTS[verdict];
+  if(verdict===G.C){ state.streak++; if(state.streak>state.best) state.best=state.streak; if(state.streak>lifetime.bestStreak) lifetime.bestStreak=state.streak; }
+  else if(verdict===G.M){ state.streak=0; }
+  // category
+  const cat = state.cats[catOf(sc.type)];
+  cat.t++; cat.c += (verdict===G.C?1:verdict===G.D?0.5:0);
+  const lcat = lifetime.cats[catOf(sc.type)];
+  lcat.t++; lcat.c += (verdict===G.C?1:verdict===G.D?0.5:0);
+  // discipline / leak
+  let leakLine=null;
+  if(R.leak){
+    state.leakTests++; lifetime.leakTests++;
+    const passed = (action==='fold');
+    if(passed){ state.leakPass++; lifetime.leakPass++; }
+    state.recentLeaks.push(passed);
+    leakLine = passed
+      ? {cls:'win', em:'✅', text: sc.lr
+          ? `<b>Discipline win.</b> You respected the limp-reraise — from most live players that line tends to be the very top of the deck, and folding everything short of a premium (or a deep set-mine) prints.`
+          : `<b>Discipline win.</b> You laid down a pretty-but-losing hand facing a big open — exactly the leak you're here to fix. That fold prints money over a session.`}
+      : {cls:'bad', em:'⚠️', text: sc.lr
+          ? `<b>This is the leak.</b> Continuing against a limp-reraise without a premium pays off the one line live players tend to reserve for monsters. Treat it as AA/KK until this player shows you otherwise.`
+          : `<b>This is the leak.</b> Calling a big open with a speculative/dominated hand at this ${S.cap}bb depth is the exact mistake we're drilling. The hand looks playable, but the math says fold.`};
+  } else if(R.antiFold){
+    state.antiTests++; lifetime.antiTests++;
+    if(action==='fold'){
+      state.overFolds++; lifetime.overFolds++;
+      leakLine = sc.lr
+        ? {cls:'over', em:'↩️', text:`<b>Don't over-correct.</b> Deep enough behind, set-mining a nearly face-up premium is the one profitable continue against a limp-reraise — this fold was <em>too tight</em>.`}
+        : {cls:'over', em:'↩️', text:`<b>Don't over-correct.</b> ${R.concept==='set-mining'
+            ? `The net price cleared the set-mine bar — this was a profitable call, and folding it leaves money on the table.`
+            : `The price made this a profitable spot to play — folding here is folding <em>too tight</em>.`} The discipline is about bad prices, not about folding every playable hand.`};
+    } else {
+      leakLine = sc.lr
+        ? {cls:'win', em:'✅', text:`<b>Correct profitable continue.</b> Deep behind, a small pair against a nearly face-up premium is set-mining at its best — you continue exactly because their range is so strong it pays you off.`}
+        : {cls:'win', em:'✅', text:`<b>Correct profitable continue.</b> ${R.concept==='set-mining'
+            ? `The net price cleared the set-mine bar — a profitable call, not a fold.`
+            : `The price was right — this is a defend, not a fold.`} Good calibration: you're folding the traps but still taking the good prices.`};
+    }
+  }
+  showFeedback(action, verdict, R, leakLine);
+  updateHUD();
+  ptPostStats();
+}
+
+function showFeedback(action, verdict, R, leakLine){
+  const fb=document.getElementById('feedback');
+  fb.className='feedback show '+(verdict===G.C?'correct':verdict===G.D?'defensible':'mistake');
+  const map={CORRECT:['✓','Correct'],DEFENSIBLE:['≈','Defensible'],MISTAKE:['✕','Mistake']};
+  document.getElementById('fbIcon').textContent=map[verdict][0];
+  document.getElementById('fbVerdict').textContent=map[verdict][1] + ` · +${PTS[verdict]}`;
+  // best line
+  const bestLbl = bestLabel(R);
+  document.getElementById('fbBest').innerHTML = `Best: <b>${bestLbl}</b>`;
+  document.getElementById('fbWhy').innerHTML = R.why;
+  // sizing note (only when the user raised) — graded lightly, never changes the verdict
+  const sz=document.getElementById('fbSize');
+  if(action==='raise' && state.pendingRaiseLabel){
+    sz.style.display='block';
+    sz.innerHTML = `<b>Sizing:</b> you raised to ${state.pendingRaiseLabel}. ${state.sizeTipText||''}`;
+  } else { sz.style.display='none'; }
+  // math
+  const m=document.getElementById('fbMath');
+  if(R.math){ m.style.display='block'; m.textContent=R.math; } else m.style.display='none';
+  // leak flag
+  const lk=document.getElementById('fbLeak'); lk.innerHTML='';
+  if(leakLine){
+    const d=document.createElement('div'); d.className='leak-flag '+leakLine.cls;
+    d.innerHTML=`<span class="em">${leakLine.em}</span><span>${leakLine.text}</span>`;
+    lk.appendChild(d);
+  }
+  // jargon (first-use full def + analogy, else short chip)
+  const jb=document.getElementById('fbJargon'); jb.innerHTML='';
+  const key=R.concept;
+  if(key && TERMS[key]){
+    if(!defined.has(key)){
+      defined.add(key);
+      const t=TERMS[key];
+      const d=document.createElement('div'); d.className='jargon';
+      d.innerHTML=`<h4>New term · <b>${t.name}</b></h4><p>${t.def}</p><p class="analogy">${t.an}</p>`;
+      jb.appendChild(d);
+    } else {
+      const chip=document.createElement('span'); chip.className='concept-chip';
+      chip.textContent='Concept: '+TERMS[key].name;
+      jb.appendChild(chip);
+    }
+  }
+  // scroll feedback into view on mobile
+  fb.scrollIntoView({behavior:'smooth', block:'nearest'});
+}
+
+function bestLabel(R){
+  const b=R.best;
+  if(b==='fold') return 'Fold';
+  if(b==='call') return R.callLabel;
+  if(b==='raise') return R.raiseLabel;
+  return 'Fold';
+}
+
+function enableActions(on){
+  for(const id of ['aFold','aCall','aRaise']) document.getElementById(id).disabled=!on;
+}
+
+/* ================================================================
+   FLOW
+   ================================================================ */
+function nextHand(){
+  state.sc = makeScenario();
+  renderScenario(state.sc);
+}
+
+/* ================================================================
+   REPORT CARD
+   ================================================================ */
+function buildReport(){
+  const el=document.getElementById('reportContent');
+  let totalHands=0, weighted=0;
+  for(const k in state.cats){ totalHands+=state.cats[k].t; weighted+=state.cats[k].c; }
+
+  // lifetime section (persisted across sessions by the main app) — shown even
+  // before the first session hand, so restored history is visible right away
+  let lifeHtml='';
+  if(lifetime.answered>0){
+    const ldisc = lifetime.leakTests>0 ? Math.round(100*lifetime.leakPass/lifetime.leakTests) : null;
+    let lcatRows='';
+    for(const k in lifetime.cats){ const o=lifetime.cats[k]; const a=o.t>0?Math.round(100*o.c/o.t):null;
+      lcatRows += `<div class="cat" style="flex:1 1 110px"><div class="nm">${k}</div><div class="vl">${a===null?'—':a+'%'}</div>
+        <div class="mini"><i style="width:${a===null?0:a}%"></i></div><div class="nm" style="margin-top:5px">${o.t} hand${o.t===1?'':'s'}</div></div>`;
+    }
+    lifeHtml = `
+    <h3 style="color:var(--gold);text-transform:uppercase;letter-spacing:.8px;font-size:13px;margin:0 0 8px">Lifetime</h3>
+    <div class="rc-grade" style="margin-bottom:10px">
+      <div class="meta">
+        <b>${lifetime.answered}</b><span>hands answered · score ${lifetime.score}</span>
+        <div style="margin-top:8px"><b style="font-size:18px;color:var(--gold)">${ldisc===null?'—':ldisc+'%'}</b><span>lifetime discipline (fold the leak)</span></div>
+        <div style="margin-top:6px"><b style="font-size:16px">${lifetime.bestStreak}</b><span>best streak ever</span></div>
+        ${lifetime.antiTests>0?`<div style="margin-top:6px"><b style="font-size:16px;color:var(--amber)">${lifetime.antiTests-lifetime.overFolds}/${lifetime.antiTests}</b><span>good-price defends taken — discipline means folding the true traps, not everything speculative</span></div>`:''}
+      </div>
+    </div>
+    <div class="cats" style="margin-top:0;margin-bottom:14px">${lcatRows}</div>
+    <h3 style="color:var(--gold);text-transform:uppercase;letter-spacing:.8px;font-size:13px;margin:4px 0 8px">This session</h3>`;
+  }
+
+  if(totalHands===0){ el.innerHTML=`${lifeHtml}<p>Play a few hands first, then check back for your report card.</p>`; return; }
+  const overall = Math.round(100*weighted/totalHands);
+  const disc = state.leakTests>0 ? Math.round(100*state.leakPass/state.leakTests) : null;
+  const grade = overall>=90?'A':overall>=80?'B':overall>=70?'C':overall>=60?'D':'F';
+
+  // worst category with >=3 attempts
+  let worst=null, worstAcc=200;
+  for(const k in state.cats){ const o=state.cats[k]; if(o.t>=3){ const a=100*o.c/o.t; if(a<worstAcc){worstAcc=a; worst=k;} } }
+
+  // tip
+  let tip='';
+  if(disc!==null && disc<70){
+    tip=`<b>Your focus:</b> the call-too-wide leak. You folded the trap hands ${disc}% of the time against big opens (${state.leakPass}/${state.leakTests}). Aim for 85%+. When a speculative hand faces a 6×+ open at this ${S.cap}bb depth, the implied-odds payoff is capped — fold and wait for a spot where the price or your position is right.`;
+  } else if(worst){
+    tip=`<b>Your focus:</b> ${worst}. That's your weakest category at ${Math.round(worstAcc)}%. Review the "How grading works" panel for that situation and slow down on those spots.`;
+  } else {
+    tip=`<b>Nicely calibrated.</b> You're folding the traps and taking the good prices. Push into Borderline difficulty to sharpen the close decisions, and try Focus Mode for extra reps on big-open spots.`;
+  }
+  if(state.overFolds>0){
+    tip += ` <br><br><span style="color:var(--amber)">Watch the other side:</span> you over-folded ${state.overFolds} good-price spot${state.overFolds>1?'s':''}. Discipline means folding the true traps, not folding everything speculative.`;
+  }
+
+  let catRows='';
+  for(const k in state.cats){ const o=state.cats[k]; const a=o.t>0?Math.round(100*o.c/o.t):null;
+    catRows += `<div class="cat" style="flex:1 1 110px"><div class="nm">${k}</div><div class="vl">${a===null?'—':a+'%'}</div>
+      <div class="mini"><i style="width:${a===null?0:a}%"></i></div><div class="nm" style="margin-top:5px">${o.t} hand${o.t===1?'':'s'}</div></div>`;
+  }
+
+  el.innerHTML=`
+    ${lifeHtml}
+    <div class="rc-grade">
+      <div class="big">${grade}</div>
+      <div class="meta">
+        <b>${overall}%</b><span>overall accuracy · ${totalHands} hands</span>
+        <div style="margin-top:8px"><b style="font-size:18px;color:var(--gold)">${disc===null?'—':disc+'%'}</b><span>discipline (fold the leak)</span></div>
+        <div style="margin-top:6px"><b style="font-size:16px">${state.best}</b><span>best streak · score ${state.score}</span></div>
+      </div>
+    </div>
+    <h3 style="color:var(--gold);text-transform:uppercase;letter-spacing:.8px;font-size:13px;margin:4px 0 8px">By category</h3>
+    <div class="cats" style="margin-top:0">${catRows}</div>
+    <div class="rc-tip">${tip}</div>
+  `;
+}
+
+/* ================================================================
+   MODAL WIRING
+   ================================================================ */
+function openModal(id){ document.getElementById(id).classList.add('show'); }
+function closeModals(){ document.querySelectorAll('.scrim').forEach(s=>s.classList.remove('show')); }
+document.querySelectorAll('[data-close]').forEach(b=>b.onclick=closeModals);
+document.querySelectorAll('.scrim').forEach(s=>s.addEventListener('click',e=>{ if(e.target===s) closeModals(); }));
+
+document.getElementById('btnHow').onclick=()=>openModal('scrimHow');
+document.getElementById('footHow').onclick=()=>openModal('scrimHow');
+document.getElementById('btnGloss').onclick=()=>{ renderGlossary(); openModal('scrimGloss'); };
+document.getElementById('btnSettings').onclick=()=>openModal('scrimSettings');
+document.getElementById('btnReport').onclick=()=>{ buildReport(); openModal('scrimReport'); };
+
+document.getElementById('btnFocus').onclick=function(){
+  state.focus=!state.focus;
+  this.setAttribute('aria-pressed', state.focus?'true':'false');
+  ptPostStats();
+};
+document.getElementById('selDiff').onchange=function(){ state.diff=this.value; ptPostStats(); };
+
+// settings
+document.getElementById('setStakes').onchange=function(){
+  const [sb,bb,sbbb]=this.value.split(',').map(Number);
+  S.sb=sb; S.bb=bb; S.sbbb=sbbb;
+  document.getElementById('brandSub').textContent=`Live $${sb}/$${bb} · ${S.cap}bb cap · big opens`;
+  ptPostStats();
+};
+document.getElementById('setCap').onchange=function(){
+  S.cap=Number(this.value);
+  document.getElementById('brandSub').textContent=`Live $${S.sb}/$${S.bb} · ${S.cap}bb cap · big opens`;
+  ptPostStats();
+};
+document.getElementById('setOpens').onchange=function(){ S.opens=this.value; ptPostStats(); };
+
+// banner dismiss
+document.getElementById('bannerX').onclick=()=>document.getElementById('banner').style.display='none';
+
+/* ================================================================
+   BUTTONS + KEYBOARD
+   ================================================================ */
+document.getElementById('aFold').onclick=()=>choose('fold');
+document.getElementById('aCall').onclick=()=>choose('call');
+document.getElementById('aRaise').onclick=()=>choose('raise');
+document.getElementById('aNext').onclick=nextHand;
+
+document.addEventListener('keydown',e=>{
+  if(document.querySelector('.scrim.show')){ if(e.key==='Escape') closeModals(); return; }
+  const k=e.key.toLowerCase();
+  if(!state.answered){
+    if(k==='f'){ choose('fold'); }
+    else if(k==='c'){ choose('call'); }
+    else if(k==='r'){ choose('raise'); }
+  } else {
+    if(k===' '||k==='enter'){ e.preventDefault(); nextHand(); }
+  }
+});
+
+/* ================================================================
+   INIT
+   ================================================================ */
+renderGlossary();
+updateHUD();
+nextHand();
+
+/* ================================================================
+   PARENT BRIDGE — live theme sync + auto-height (embedded as a tab)
+   ================================================================ */
+(function(){
+  function setTheme(t){ if(t) document.documentElement.setAttribute('data-theme', t); }
+  try { var m = location.search.match(/[?&]theme=([a-z]+)/); setTheme(m ? m[1] : 'cardroom'); } catch(e) { setTheme('cardroom'); }
+  window.addEventListener('message', function(ev){
+    var d = ev && ev.data;
+    if (d && d.type === 'theme') setTheme(d.theme);
+    if (d && d.type === 'ptRestore') { try { ptMergeRestore(d.data); } catch(e){} }
+  });
+  // Ask the parent for persisted lifetime stats. The reply lands asynchronously,
+  // after the first nextHand(): settings merge into S and only shape the NEXT deal.
+  try { parent.postMessage({ type:'ptReady' }, '*'); } catch(e){}
+  // Measure TRUE content extent (max bottom of in-flow children), NOT body.scrollHeight:
+  // body is min-height:100dvh, so scrollHeight tracks the iframe viewport — posting that
+  // to a parent that then grows the iframe is a +8px-per-message feedback loop.
+  function contentH(){
+    var max = 0, kids = document.body.children;
+    for (var i = 0; i < kids.length; i++) {
+      var cs = getComputedStyle(kids[i]);
+      if (cs.position === 'fixed' || cs.display === 'none') continue;  /* overlays size to the viewport */
+      var b = kids[i].getBoundingClientRect().bottom + (window.scrollY || 0);
+      if (b > max) max = b;
+    }
+    return Math.ceil(max) + 16;
+  }
+  function postH(){ try { parent.postMessage({ type:'ptHeight', height: contentH() }, '*'); } catch(e){} }
+  window.addEventListener('load', postH);
+  window.addEventListener('resize', postH);
+  if (window.ResizeObserver) { try { new ResizeObserver(postH).observe(document.body); } catch(e){} }
+  setInterval(postH, 1200);
+})();
+</script>
+</body>
+</html>
